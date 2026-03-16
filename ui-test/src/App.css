@@ -1,0 +1,22 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500&display=swap');
+
+/* CSS Variables — single source of truth for the palette */
+:root {
+  --color-slate-grey:   #545F66;
+  --color-burnt-orange: #BD632F;
+  --color-blush-cream:  #F7EBE8;
+  --color-mint-teal:    #63E2C6;
+  --color-dark-navy:    #404E5C;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-blush-cream);
+  -webkit-font-smoothing: antialiased;
+}
