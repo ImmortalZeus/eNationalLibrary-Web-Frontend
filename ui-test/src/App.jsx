@@ -4,9 +4,10 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ReaderDashboard from "./pages/guest/ReaderDashboard";
 import BookDetailPage from "./pages/guest/BookDetailPage";
-import BrowseBooksPage from "./pages/guest/Browsebookspage";
+import BrowseBooksPage from "./pages/guest/BrowseBooksPage";
 import MyRecordsPage from "./pages/guest/MyRecordsPage";
 import ReadingCardPage from "./pages/guest/ReadingCardPage";
+import ProfilePage from "./pages/guest/ProfilePage";
 
 export default function App() {
   const [page, setPage] = useState("home");
@@ -66,6 +67,14 @@ export default function App() {
       onLogout={() => setPage("home")}
       onNavigate={setPage}
       activePage="readingCard"
+    />;
+  }
+
+  if (page === "profile") {
+    return <ProfilePage
+      onLogout={() => setPage("home")}
+      onNavigate={setPage}
+      activePage="profile"
     />;
   }
 

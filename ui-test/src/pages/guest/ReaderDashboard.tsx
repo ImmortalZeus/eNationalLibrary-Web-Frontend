@@ -168,7 +168,7 @@ export default function ReaderDashboard({ onLogout, onViewBook, onBrowseMore, on
           <NavItem label="Browse Books" icon={icons.browse}   active={activePage === "browse"}    onClick={() => { setActivePage("browse"); onNavigate?.("browseBooks"); }}    />
           <NavItem label="My Records"   icon={icons.records}  active={activePage === "records"}   onClick={() => { setActivePage("records"); onNavigate?.("myRecords"); }}   />
           <NavItem label="Reading Card" icon={icons.card}     active={activePage === "card"}      onClick={() => { setActivePage("card"); onNavigate?.("readingCard"); }}      />
-          <NavItem label="Profile"      icon={icons.profile}  active={activePage === "profile"}   onClick={() => setActivePage("profile")}   />
+          <NavItem label="Profile"      icon={icons.profile}  active={activePage === "profile"}   onClick={() => { setActivePage("profile"); onNavigate?.("profile"); }}   />
         </div>
 
         {/* Logout */}
