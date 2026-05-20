@@ -32,6 +32,7 @@ export default function App() {
     return <RegisterPage
       onNavigateToLogin={() => setPage("login")}
       onNavigateToHome={() => setPage("home")}
+      onRegisterSuccess={() => setPage("home")}
     />;
   }
 

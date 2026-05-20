@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { PALETTE } from "../../data/constants";
-import BorrowModal from "../../components/Borrowmodal";
+import BorrowModal from "../../components/BorrowModal";
 
 interface Review {
   id: number;
