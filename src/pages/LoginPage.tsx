@@ -16,7 +16,7 @@ export default function LoginPage({
   onNavigateToHome,
   onLoginSuccess,
 }: LoginPageProps) {
-  const { saveToken, role: savedRole } = useAuth();
+  const { saveToken, setReaderId } = useAuth();
   const [usernameOrEmail, setUsernameOrEmail] = useState("");
   const [password, setPassword]             = useState("");
   const [loading, setLoading]               = useState(false);
@@ -27,27 +27,39 @@ export default function LoginPage({
   const [roleTab, setRoleTab] = useState<UserRole>("Reader");
   const isReader = roleTab === "Reader";
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      const { accessToken } = await authService.login({ usernameOrEmail, password });
-      saveToken(accessToken);
-      // Decode role from the token (useAuth already did it via saveToken)
-      // We need to read it after saveToken updates state — use a quick decode
-      const { jwtDecode } = await import("jwt-decode");
-      const { role } = jwtDecode<{ role: UserRole }>(accessToken);
-      onLoginSuccess(role);
-    } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })
-          ?.response?.data?.message ?? "Invalid credentials. Please try again.";
-      setError(typeof msg === "string" ? msg : "Login failed.");
-    } finally {
-      setLoading(false);
+
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setError(null);
+  setLoading(true);
+  try {
+    const { accessToken } = await authService.login({ usernameOrEmail, password });
+    saveToken(accessToken);
+
+    const { jwtDecode } = await import("jwt-decode");
+    const { role, sub } = jwtDecode<{ role: UserRole; sub: string }>(accessToken);
+
+    // Store readerId for Reader accounts
+    if (role === "Reader") {
+      try {
+        const { readerService } = await import("../services/reader.service");
+        const readers = await readerService.findAll();
+        const mine = readers.find(r => r.user?.userId === sub);
+        if (mine) setReaderId(mine.userId);
+      } catch {
+        // non-fatal — app still works, just slower fallback
+      }
     }
-  };
+
+    onLoginSuccess(role);
+  } catch (err: unknown) {
+    const msg = (err as { response?: { data?: { message?: string } } })
+      ?.response?.data?.message ?? "Invalid credentials. Please try again.";
+    setError(typeof msg === "string" ? msg : "Login failed.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div style={{

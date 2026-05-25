@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { PALETTE } from "../data/constants";
 import { authService } from "../services/auth.service";
-
+import { useAuth } from "../context/AuthContext";
 interface RegisterPageProps {
   onNavigateToLogin: () => void;
   onNavigateToHome:  () => void;
@@ -14,6 +14,7 @@ export default function RegisterPage({
   onNavigateToHome,
   onRegisterSuccess,
 }: RegisterPageProps) {
+  const { saveToken, setReaderId } = useAuth();
   const [showToast, setShowToast] = useState(false);
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState<string | null>(null);
@@ -49,6 +50,16 @@ export default function RegisterPage({
         role:        "Reader",   // readers self-register; admins are created by admin
         status:      "Active",
       });
+    const { accessToken } = await authService.login({
+      usernameOrEmail: form.username,
+      password: form.password,
+    });
+    saveToken(accessToken);
+    const { jwtDecode } = await import("jwt-decode");
+    const { sub } = jwtDecode<{ sub: string }>(accessToken);
+    const readers = await import("../services/reader.service").then(m => m.readerService.findAll());
+    const mine = readers.find(r => r.user?.userId === sub);
+    if (mine) setReaderId(mine.userId);
       setShowToast(true);
       setTimeout(() => {
         setShowToast(false);

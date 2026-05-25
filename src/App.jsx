@@ -15,10 +15,10 @@ export default function App() {
   const [prevPage, setPrevPage] = useState("readerDashboard");
 
   const goToBookDetail = (book, from = "readerDashboard") => {
-    setSelectedBook(book);
-    setPrevPage(from);
-    setPage("bookDetail");
-  };
+  setSelectedBook(book);   // book is now BookPublicDto
+  setPrevPage(from);
+  setPage("bookDetail");
+};
 
   if (page === "login") {
     return <LoginPage
@@ -83,6 +83,7 @@ export default function App() {
     return <BookDetailPage
       book={selectedBook}
       onBack={() => setPage(prevPage)}
+      onNavigate={setPage}
     />;
   }
 
