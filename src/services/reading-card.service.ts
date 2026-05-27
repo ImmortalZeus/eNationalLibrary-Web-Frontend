@@ -14,6 +14,16 @@ export const readingCardService = {
     return data;
   },
 
+  async update(cardId: string, dto: {
+    label?: string;
+    type?: "Normal" | "VIP";
+    activationDate?: string;
+    expiryDate?: string;
+  }): Promise<boolean> {
+    const { data } = await api.put<boolean>(`/reading-cards/${cardId}`, dto);
+    return data;
+  },
+
   async findAll(): Promise<ReadingCardPublicDto[]> {
     const { data } = await api.get<ReadingCardPublicDto[]>("/reading-cards", {
       params: { relations: "reader" },
