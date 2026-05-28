@@ -5,7 +5,8 @@ import { useAuth } from "../../context/AuthContext";
 import { readerService } from "../../services/reader.service";
 import api from "../../services/api";
 import type { ReaderPublicDto, BorrowRecordPublicDto } from "../../types";
-
+import { bookService } from "../../services/book.service";
+import type { BookPublicDto } from "../../types";
 interface ReaderDashboardProps {
   onLogout: () => void;
   onViewBook?: (book: any) => void;
@@ -15,11 +16,6 @@ interface ReaderDashboardProps {
 }
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
-const RECOMMENDED_BOOKS = [
-  { id: 1, title: "Advanced React Patterns", author: "Sarah Johnson", genre: "Technology", description: "A deep dive into advanced React patterns and best practices.", isbn: "978-0-111111-11-1", category: "Technology", publisher: "Tech Press", year: 2024, available: 2, total: 4, rating: 4.8, reviews: [{ id: 1, name: "Alice Lee", date: "3/5/2026", rating: 5, comment: "Excellent resource!" }] },
-  { id: 2, title: "The Art of Design",       author: "Mike Chen",     genre: "Art",        description: "An exploration of design principles and visual thinking.",    isbn: "978-0-222222-22-2", category: "Art",        publisher: "Creative House", year: 2023, available: 1, total: 3, rating: 4.3, reviews: [{ id: 1, name: "Sara Kim",  date: "3/1/2026",  rating: 4, comment: "Beautiful book."   }] },
-  { id: 3, title: "Philosophy 101",          author: "Emma Davis",    genre: "Philosophy", description: "An accessible introduction to the greatest philosophical ideas.", isbn: "978-0-333333-33-3", category: "Philosophy", publisher: "Wisdom Books",   year: 2022, available: 4, total: 5, rating: 4.1, reviews: [{ id: 1, name: "Tom Ray",   date: "2/20/2026", rating: 4, comment: "Great starting point." }] },
-];
 
 const GENRE_COLORS: Record<string, string> = {
   Technology: PALETTE.darkNavy,
@@ -128,16 +124,23 @@ export default function ReaderDashboard({ onLogout, onViewBook, onBrowseMore, on
   const [reader, setReader]         = useState<ReaderPublicDto | null>(null);
   const [borrowRecords, setBorrowRecords] = useState<BorrowRecordPublicDto[]>([]);
   const [loading, setLoading]       = useState(true);
+  const [recommendedBooks, setRecommendedBooks] = useState<BookPublicDto[]>([]);
+  // Add to useEffect:
+useEffect(() => {
+  if (!user?.sub) return;
+  // Fetch reader data
+  readerService.findByUserId(user.sub).then(r => {
+    if (r) {
+      setReader(r);
+      setBorrowRecords(r.borrowRecords ?? []);
+    }
+  }).finally(() => setLoading(false));
 
-  useEffect(() => {
-    if (!user?.sub) return;
-    readerService.findByUserId(user.sub).then(r => {
-      if (r) {
-        setReader(r);
-        setBorrowRecords(r.borrowRecords ?? []);
-      }
-    }).finally(() => setLoading(false));
-  }, [user?.sub]);
+  // Fetch recommended books (just show all books, limit to 5)
+  bookService.findAll().then(books => {
+    setRecommendedBooks(books.slice(0, 5));
+  });
+}, [user?.sub]);
 
   const handleLogout = () => { logout(); onLogout(); };
 
@@ -231,27 +234,56 @@ export default function ReaderDashboard({ onLogout, onViewBook, onBrowseMore, on
               <span onClick={onBrowseMore} style={{ fontSize: 13, color: PALETTE.burntOrange, cursor: "pointer", fontWeight: 500 }}>Browse More</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {RECOMMENDED_BOOKS.map(book => (
-                <div key={book.id} style={{ background: "#f0faf7", border: "1px solid #d4f0e8", borderRadius: 10, padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 8, background: PALETTE.slateGrey, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-                      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-                    </svg>
+              {recommendedBooks.map(book => {
+                const genre      = book.genres?.[0]?.label ?? "Unknown";
+                const author     = book.authors?.map(a => a.name).join(", ") ?? "Unknown";
+                const genreColor = GENRE_COLORS[genre] ?? PALETTE.slateGrey;
+                return (
+                  <div key={book.bookId} style={{
+                    background: "#f0faf7", border: "1px solid #d4f0e8",
+                    borderRadius: 10, padding: "14px 18px",
+                    display: "flex", alignItems: "center", gap: 14,
+                  }}>
+                    <div style={{
+                      width: 44, height: 44, borderRadius: 8, background: PALETTE.slateGrey,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      flexShrink: 0, overflow: "hidden",
+                    }}>
+                      {book.previewUrl ? (
+                        <img src={book.previewUrl} alt={book.title}
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          onError={e => { e.currentTarget.style.display = "none"; }}
+                        />
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                          stroke="rgba(255,255,255,0.7)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+                        </svg>
+                      )}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: PALETTE.darkNavy }}>{book.title}</p>
+                      <p style={{ margin: "3px 0 0", fontSize: 12, color: PALETTE.slateGrey }}>{author}</p>
+                      <span style={{
+                        display: "inline-block", marginTop: 5, fontSize: 11, fontWeight: 500,
+                        padding: "2px 10px", borderRadius: 20,
+                        background: (genreColor) + "22", color: genreColor,
+                        border: `1px solid ${genreColor}44`,
+                      }}>{genre}</span>
+                    </div>
+                    <button onClick={() => onViewBook?.(book)} style={{
+                      background: "transparent", border: `1.5px solid ${PALETTE.mintTeal}`,
+                      color: PALETTE.darkNavy, fontFamily: "'DM Sans', sans-serif",
+                      fontSize: 13, fontWeight: 500, padding: "6px 16px",
+                      borderRadius: 7, cursor: "pointer",
+                    }}
+                      onMouseEnter={e => { e.currentTarget.style.background = PALETTE.mintTeal; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+                    >View</button>
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: PALETTE.darkNavy }}>{book.title}</p>
-                    <p style={{ margin: "3px 0 0", fontSize: 12, color: PALETTE.slateGrey }}>{book.author}</p>
-                    <span style={{ display: "inline-block", marginTop: 5, fontSize: 11, fontWeight: 500, padding: "2px 10px", borderRadius: 20, background: (GENRE_COLORS[book.genre] ?? PALETTE.slateGrey) + "22", color: GENRE_COLORS[book.genre] ?? PALETTE.slateGrey, border: `1px solid ${(GENRE_COLORS[book.genre] ?? PALETTE.slateGrey)}44` }}>
-                      {book.genre}
-                    </span>
-                  </div>
-                  <button onClick={() => onViewBook?.(book)} style={{ background: "transparent", border: `1.5px solid ${PALETTE.mintTeal}`, color: PALETTE.darkNavy, fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 500, padding: "6px 16px", borderRadius: 7, cursor: "pointer" }}
-                    onMouseEnter={e => { e.currentTarget.style.background = PALETTE.mintTeal; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
-                  >View</button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

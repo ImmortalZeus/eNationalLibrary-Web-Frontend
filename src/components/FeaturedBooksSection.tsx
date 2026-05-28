@@ -1,21 +1,17 @@
-import type { Book } from "../types";
+import type { BookPublicDto } from "../types";
 import { PALETTE } from "../data/constants";
 import BookCard from "./BookCard";
 
 interface FeaturedBooksSectionProps {
-  books: Book[];
+  books: BookPublicDto[];
 }
 
 export default function FeaturedBooksSection({ books }: FeaturedBooksSectionProps) {
   return (
     <section style={{ padding: "60px 32px 72px", background: PALETTE.blushCream }}>
       <h2 style={{
-        fontFamily: "'Playfair Display', serif",
-        fontSize: 22,
-        color: PALETTE.darkNavy,
-        fontWeight: 700,
-        marginBottom: 28,
-        marginTop: 0,
+        fontFamily: "'Playfair Display', serif", fontSize: 22,
+        color: PALETTE.darkNavy, fontWeight: 700, marginBottom: 28, marginTop: 0,
       }}>
         Featured Books
       </h2>
@@ -28,11 +24,10 @@ export default function FeaturedBooksSection({ books }: FeaturedBooksSectionProp
         <div style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fill, minmax(185px, 1fr))",
-          gap: 20,
-          maxWidth: 900,
+          gap: 20, maxWidth: 900,
         }}>
-          {books.map((book) => (
-            <BookCard key={book.id} book={book} />
+          {books.map(book => (
+            <BookCard key={book.bookId} book={book} />
           ))}
         </div>
       )}

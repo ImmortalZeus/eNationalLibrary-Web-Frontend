@@ -1,10 +1,12 @@
-import { useState } from "react";
+// src/pages/HomePage.tsx
+import { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
 import HeroSection from "../components/HeroSection";
 import FeaturesSection from "../components/FeaturesSection";
 import FeaturedBooksSection from "../components/FeaturedBooksSection";
 import Footer from "../components/Footer";
-import { FEATURED_BOOKS } from "../data/constants";
+import { bookService } from "../services/book.service";
+import type { BookPublicDto } from "../types";
 
 interface HomePageProps {
   onLoginClick: () => void;
@@ -12,12 +14,25 @@ interface HomePageProps {
 }
 
 export default function HomePage({ onLoginClick, onRegisterClick }: HomePageProps) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery]   = useState("");
+  const [books, setBooks]   = useState<BookPublicDto[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = FEATURED_BOOKS.filter((b) =>
-    b.title.toLowerCase().includes(query.toLowerCase()) ||
-    b.author.toLowerCase().includes(query.toLowerCase())
-  );
+  useEffect(() => {
+    bookService.findAll()
+      .then(data => setBooks(data))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = books.filter(b => {
+    const author = b.authors?.map(a => a.name).join(" ") ?? "";
+    return (
+      b.title.toLowerCase().includes(query.toLowerCase()) ||
+      author.toLowerCase().includes(query.toLowerCase())
+    );
+  });
+
+  const displayed = query ? filtered : books;
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -25,7 +40,10 @@ export default function HomePage({ onLoginClick, onRegisterClick }: HomePageProp
       <main style={{ flex: 1 }}>
         <HeroSection query={query} setQuery={setQuery} />
         <FeaturesSection />
-        <FeaturedBooksSection books={query ? filtered : FEATURED_BOOKS} />
+        {loading
+          ? <div style={{ padding: "40px", textAlign: "center", color: "#545F66" }}>Loading books…</div>
+          : <FeaturedBooksSection books={displayed} />
+        }
       </main>
       <Footer />
     </div>
