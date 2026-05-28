@@ -12,7 +12,7 @@ export const bookService = {
 
   async findById(bookId: string): Promise<BookPublicDto> {
     const { data } = await api.get<BookPublicDto>(`/books/${bookId}`, {
-      params: { relations: "authors,genres,publishers" },
+      params: { relations: "authors,genres,publishers,reviews,reviews.reader,reviews.reader.user" },
     });
     return data;
   },

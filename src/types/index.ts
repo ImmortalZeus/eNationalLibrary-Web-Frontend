@@ -97,6 +97,7 @@ export interface BookPublicDto {
   authors?: AuthorPublicDto[];
   publishers?: PublisherPublicDto[];
   genres?: GenrePublicDto[];
+  reviews?: ReviewPublicDto[];
 }
 
 export interface BorrowRecordPublicDto {
@@ -142,4 +143,13 @@ export interface ReaderPublicDto {
   borrowRecords?: BorrowRecordPublicDto[];
   waitingBooks?: BookPublicDto[];
   readingCards?: ReadingCardPublicDto[];  // add this line
+}
+// Add to types/index.ts
+export interface ReviewPublicDto {
+  reviewId: string;
+  rating: number;
+  comment: string;
+  reviewDate: string;
+  book?: BookPublicDto;
+  reader?: ReaderPublicDto;
 }
