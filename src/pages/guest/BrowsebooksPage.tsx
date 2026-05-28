@@ -13,12 +13,13 @@ interface BrowseBooksPageProps {
 }
 
 const GENRE_COLORS: Record<string, string> = {
-  Fiction:    PALETTE.burntOrange,
   Technology: PALETTE.darkNavy,
   Art:        PALETTE.slateGrey,
   Philosophy: PALETTE.mintTeal,
-  Science:    "#5b8fa8",
-  History:    "#8b6f5e",
+  Fiction:    PALETTE.burntOrange,
+  Math:      "#5a9bd4",
+  Physics:   "#e05a5a",
+  IT:       "#8e44ad",
 };
 
 const NAV_ITEMS = [

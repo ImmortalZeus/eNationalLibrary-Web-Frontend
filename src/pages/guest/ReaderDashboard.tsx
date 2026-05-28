@@ -22,6 +22,9 @@ const GENRE_COLORS: Record<string, string> = {
   Art:        PALETTE.slateGrey,
   Philosophy: PALETTE.mintTeal,
   Fiction:    PALETTE.burntOrange,
+  Math:      "#5a9bd4",
+  Physics:   "#e05a5a",
+  IT:       "#8e44ad",
 };
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -86,12 +89,27 @@ function BorrowedRow({ br, onReturn }: { br: BorrowRecordPublicDto; onReturn: (i
 
   return (
     <div style={{ background: "#f0faf7", border: "1px solid #d4f0e8", borderRadius: 10, padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
-      <div style={{ width: 44, height: 44, borderRadius: 8, background: PALETTE.slateGrey, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-        </svg>
+      
+      {/* Book cover — same as recommended */}
+      <div style={{
+        width: 44, height: 44, borderRadius: 8, background: PALETTE.slateGrey,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0, overflow: "hidden",
+      }}>
+        {br.book?.previewUrl ? (
+          <img src={br.book.previewUrl} alt={br.book.title}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            onError={e => { e.currentTarget.style.display = "none"; }}
+          />
+        ) : (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="rgba(255,255,255,0.7)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+          </svg>
+        )}
       </div>
+
       <div style={{ flex: 1 }}>
         <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: PALETTE.darkNavy }}>
           {br.book?.title ?? "Unknown Book"}
@@ -125,18 +143,26 @@ export default function ReaderDashboard({ onLogout, onViewBook, onBrowseMore, on
   const [borrowRecords, setBorrowRecords] = useState<BorrowRecordPublicDto[]>([]);
   const [loading, setLoading]       = useState(true);
   const [recommendedBooks, setRecommendedBooks] = useState<BookPublicDto[]>([]);
+  const [reviewCount, setReviewCount] = useState(0);
+
   // Add to useEffect:
 useEffect(() => {
   if (!user?.sub) return;
-  // Fetch reader data
+
   readerService.findByUserId(user.sub).then(r => {
     if (r) {
       setReader(r);
       setBorrowRecords(r.borrowRecords ?? []);
+
+      // Fetch review count for this reader
+      api.get("/reviews", { params: { relations: "reader" } }).then(res => {
+        const allReviews = res.data as { reader?: { userId?: string } }[];
+        const mine = allReviews.filter(rv => rv.reader?.userId === r.userId);
+        setReviewCount(mine.length);
+      });
     }
   }).finally(() => setLoading(false));
 
-  // Fetch recommended books (just show all books, limit to 5)
   bookService.findAll().then(books => {
     setRecommendedBooks(books.slice(0, 5));
   });
@@ -154,7 +180,7 @@ useEffect(() => {
 
   const activeBorrows = borrowRecords.filter(br => !br.actualReturnDate);
   const username      = reader?.user?.username ?? user?.username ?? "Reader";
-
+  const returnedBorrows = borrowRecords.filter(br => !!br.actualReturnDate);
   return (
     <div style={{ minHeight: "100vh", background: PALETTE.blushCream, fontFamily: "'DM Sans', sans-serif" }}>
 
@@ -196,8 +222,18 @@ useEffect(() => {
             value={loading ? "…" : `${activeBorrows.length} Book${activeBorrows.length !== 1 ? "s" : ""}`}
             accent={PALETTE.burntOrange} icon={icons.book}
           />
-          <StatCard label="Books Read"      value="24 Books"   accent={PALETTE.mintTeal}  icon={icons.check} />
-          <StatCard label="Reviews Written" value="18 Reviews" accent={PALETTE.slateGrey} icon={icons.star}  />
+          <StatCard
+            label="Books Read"
+            value={loading ? "…" : `${returnedBorrows.length} Book${returnedBorrows.length !== 1 ? "s" : ""}`}
+            accent={PALETTE.mintTeal}
+            icon={icons.check}
+          />
+          <StatCard
+            label="Reviews Written"
+            value={loading ? "…" : `${reviewCount} Review${reviewCount !== 1 ? "s" : ""}`}
+            accent={PALETTE.slateGrey}
+            icon={icons.star}
+          />
           <StatCard
             label="Upcoming Due"
             value={activeBorrows.length > 0 ? new Date(activeBorrows[0].dueDate).toLocaleDateString() : "None"}
@@ -226,6 +262,7 @@ useEffect(() => {
               </div>
             )}
           </div>
+
 
           {/* Recommended */}
           <div style={{ background: "#fff", borderRadius: 12, padding: "24px 28px", border: "1.5px solid #ede5e0" }}>
