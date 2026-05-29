@@ -192,7 +192,7 @@ export default function MyRecordsPage({ onLogout, onNavigate, activePage = "myRe
             <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
           </svg>
           <span style={{ color: PALETTE.blushCream, fontFamily: "'Playfair Display', serif",
-            fontSize: 16, fontWeight: 600 }}>Library System</span>
+            fontSize: 16, fontWeight: 600 }}>eNationalLibrary System</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           {NAV_ITEMS.map(item => (

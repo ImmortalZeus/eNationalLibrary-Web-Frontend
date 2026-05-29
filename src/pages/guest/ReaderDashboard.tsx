@@ -191,7 +191,7 @@ useEffect(() => {
             <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
             <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
           </svg>
-          <span style={{ color: PALETTE.blushCream, fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 600 }}>Library System</span>
+          <span style={{ color: PALETTE.blushCream, fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 600 }}>eNationalLibrary System</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <NavItem label="Dashboard"    icon={icons.dashboard} active={activePage === "dashboard"} onClick={() => { setActivePage("dashboard"); onNavigate?.("readerDashboard"); }} />

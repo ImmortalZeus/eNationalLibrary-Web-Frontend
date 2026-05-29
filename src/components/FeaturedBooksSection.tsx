@@ -4,16 +4,17 @@ import BookCard from "./BookCard";
 
 interface FeaturedBooksSectionProps {
   books: BookPublicDto[];
+  isSearching?: boolean;
 }
 
-export default function FeaturedBooksSection({ books }: FeaturedBooksSectionProps) {
+export default function FeaturedBooksSection({ books, isSearching }: FeaturedBooksSectionProps) {
   return (
-    <section style={{ padding: "60px 32px 72px", background: PALETTE.blushCream }}>
+    <section style={{ padding: "60px 40px 72px", background: PALETTE.blushCream }}>
       <h2 style={{
         fontFamily: "'Playfair Display', serif", fontSize: 22,
         color: PALETTE.darkNavy, fontWeight: 700, marginBottom: 28, marginTop: 0,
       }}>
-        Featured Books
+        {isSearching ? `Search Results (${books.length})` : "Featured Books"}
       </h2>
 
       {books.length === 0 ? (
@@ -23,8 +24,10 @@ export default function FeaturedBooksSection({ books }: FeaturedBooksSectionProp
       ) : (
         <div style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(185px, 1fr))",
-          gap: 20, maxWidth: 900,
+          gridTemplateColumns: isSearching
+            ? "repeat(auto-fill, minmax(160px, 1fr))"  // flexible when searching
+            : "repeat(8, 1fr)",                         // fixed 8 columns when featured
+          gap: 16,
         }}>
           {books.map(book => (
             <BookCard key={book.bookId} book={book} />

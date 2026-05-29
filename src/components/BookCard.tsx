@@ -22,7 +22,7 @@ export default function BookCard({ book }: BookCardProps) {
       {/* Cover */}
       <div style={{
         background: "linear-gradient(145deg, #545F66, #404E5C)",
-        height: 190, display: "flex", alignItems: "center",
+        height: 150, display: "flex", alignItems: "center",
         justifyContent: "center", overflow: "hidden",
       }}>
         {book.previewUrl ? (
@@ -40,27 +40,27 @@ export default function BookCard({ book }: BookCardProps) {
       </div>
 
       {/* Info */}
-      <div style={{ padding: "14px 16px 16px", flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
-        <p style={{ margin: 0, fontFamily: "'Playfair Display', serif",
-          fontSize: 14.5, fontWeight: 600, color: PALETTE.darkNavy }}>
-          {book.title}
-        </p>
-        <p style={{ margin: 0, fontFamily: "'DM Sans', sans-serif",
-          fontSize: 12.5, color: PALETTE.slateGrey }}>
-          {author}
-        </p>
-        <div style={{ display: "flex", justifyContent: "space-between",
-          alignItems: "center", marginTop: 10 }}>
-          <span style={{
-            background: genreColor,
-            color: genre === "Philosophy" ? PALETTE.darkNavy : "#fff",
-            fontSize: 11, fontFamily: "'DM Sans', sans-serif",
-            fontWeight: 500, padding: "3px 10px", borderRadius: 20, letterSpacing: 0.3,
-          }}>
-            {genre}
-          </span>
-        </div>
+    <div style={{ padding: "12px 12px 14px", flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
+      <p style={{ margin: 0, fontFamily: "'Playfair Display', serif",
+        fontSize: 13, fontWeight: 600, color: PALETTE.darkNavy, lineHeight: 1.3 }}>
+        {book.title}
+      </p>
+      <p style={{ margin: 0, fontFamily: "'DM Sans', sans-serif",
+        fontSize: 11.5, color: PALETTE.slateGrey }}>
+        {author}
+      </p>
+      <div style={{ display: "flex", justifyContent: "space-between",
+        alignItems: "center", marginTop: 8 }}>
+        <span style={{
+          background: genreColor,
+          color: genre === "Philosophy" ? PALETTE.darkNavy : "#fff",
+          fontSize: 10, fontFamily: "'DM Sans', sans-serif",
+          fontWeight: 500, padding: "2px 8px", borderRadius: 20, letterSpacing: 0.3,
+        }}>
+          {genre}
+        </span>
       </div>
     </div>
+  </div>
   );
 }
