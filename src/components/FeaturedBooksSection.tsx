@@ -4,9 +4,10 @@ import BookCard from "./BookCard";
 
 interface FeaturedBooksSectionProps {
   books: Book[];
+  emptyMessage?: string;
 }
 
-export default function FeaturedBooksSection({ books }: FeaturedBooksSectionProps) {
+export default function FeaturedBooksSection({ books, emptyMessage = "No books match your search." }: FeaturedBooksSectionProps) {
   return (
     <section style={{ padding: "60px 32px 72px", background: PALETTE.blushCream }}>
       <h2 style={{
@@ -22,7 +23,7 @@ export default function FeaturedBooksSection({ books }: FeaturedBooksSectionProp
 
       {books.length === 0 ? (
         <p style={{ fontFamily: "'DM Sans', sans-serif", color: PALETTE.slateGrey, fontSize: 14 }}>
-          No books match your search.
+          {emptyMessage}
         </p>
       ) : (
         <div style={{

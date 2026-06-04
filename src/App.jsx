@@ -8,6 +8,7 @@ import BrowseBooksPage from "./pages/guest/BrowseBooksPage";
 import MyRecordsPage from "./pages/guest/MyRecordsPage";
 import ReadingCardPage from "./pages/guest/ReadingCardPage";
 import ProfilePage from "./pages/guest/ProfilePage";
+import AdminApp from "./pages/admin/AdminApp";
 
 export default function App() {
   const [page, setPage] = useState("home");
@@ -24,8 +25,12 @@ export default function App() {
     return <LoginPage
       onNavigateToRegister={() => setPage("register")}
       onNavigateToHome={() => setPage("home")}
-      onLoginSuccess={(role) => setPage(role === "Admin" ? "home" : "readerDashboard")}
+      onLoginSuccess={(role) => setPage(role === "Admin" ? "admin" : "readerDashboard")}
     />;
+  }
+
+  if (page === "admin") {
+    return <AdminApp onLogout={() => setPage("home")} />;
   }
 
   if (page === "register") {
