@@ -13,12 +13,13 @@ interface BrowseBooksPageProps {
 }
 
 const GENRE_COLORS: Record<string, string> = {
-  Fiction:    PALETTE.burntOrange,
   Technology: PALETTE.darkNavy,
   Art:        PALETTE.slateGrey,
   Philosophy: PALETTE.mintTeal,
-  Science:    "#5b8fa8",
-  History:    "#8b6f5e",
+  Fiction:    PALETTE.burntOrange,
+  Math:      "#5a9bd4",
+  Physics:   "#e05a5a",
+  IT:       "#8e44ad",
 };
 
 const NAV_ITEMS = [
@@ -157,7 +158,7 @@ export default function BrowseBooksPage({ onBack, onViewBook, activePage, onNavi
             <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
           </svg>
           <span style={{ color: PALETTE.blushCream, fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 600 }}>
-            Library System
+            eNationalLibrary System
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>

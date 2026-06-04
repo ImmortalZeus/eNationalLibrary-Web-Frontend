@@ -4,7 +4,7 @@ import { PALETTE } from "../data/constants";
 import { borrowRecordService } from "../services/borrow-record.service";
 import { useAuth } from "../context/AuthContext";
 import { readerService } from "../services/reader.service";
-import type { ReaderPublicDto } from "../types";
+import type { ReaderPublicDto, ReadingCardPublicDto } from "../types";
 
 interface BorrowModalProps {
   bookTitle: string;
@@ -22,9 +22,22 @@ const BORROW_DAYS: Record<string, number> = {
   Normal: 30,
   VIP:    45,
 };
+const BORROW_RENEWALS: Record<string, number> = {
+  Normal: 1,
+  VIP:    2,
+};
 
-function isExpired(expiryDate: string): boolean {
+function isExpired(expiryDate: string | null | undefined): boolean {
+  if (!expiryDate) return true;
   return new Date(expiryDate) < new Date();
+}
+
+// VIP takes priority over Normal
+function getActiveCard(cards: ReadingCardPublicDto[]): ReadingCardPublicDto | null {
+  const active = cards.filter(c => !isExpired(c.expiryDate));
+  const vip = active.find(c => c.type === "VIP");
+  if (vip) return vip;
+  return active.find(c => c.type === "Normal") ?? null;
 }
 
 export default function BorrowModal({ bookTitle, bookId, onConfirm, onCancel, onNavigateToCard }: BorrowModalProps) {
@@ -47,7 +60,7 @@ export default function BorrowModal({ bookTitle, bookId, onConfirm, onCancel, on
       }
 
       const cards = r.readingCards ?? [];
-      const activeCard = cards.find(c => c.expiryDate && !isExpired(c.expiryDate));
+      const activeCard =getActiveCard(cards);
 
       if (!activeCard) {
         setNoCard(true);
@@ -211,8 +224,7 @@ export default function BorrowModal({ bookTitle, bookId, onConfirm, onCancel, on
               Successfully Borrowed!
             </h2>
             <p style={{ margin: 0, fontSize: 13.5, color: PALETTE.slateGrey, lineHeight: 1.6 }}>
-              Enjoy reading <strong>"{bookTitle}"</strong>.<br/>
-              Please return it within <strong>30 days</strong>.
+              Please return it within <strong>{BORROW_DAYS[cardType] ?? 30} days</strong>.
             </p>
           </>
 
@@ -246,7 +258,7 @@ export default function BorrowModal({ bookTitle, bookId, onConfirm, onCancel, on
               {[
                 { icon: "📅", label: "Borrow period", value: `${BORROW_DAYS[cardType] ?? 30} days` },
                 { icon: "⭐", label: "Card type",     value: cardType },
-                { icon: "🔄", label: "Renewals",      value: "1 allowed" },
+                { icon: "🔄", label: "Renewals",      value: `${BORROW_RENEWALS[cardType] ?? 1} allowed` },
               ].map(item => (
                 <div key={item.label} style={{ textAlign: "center" }}>
                   <p style={{ margin: 0, fontSize: 18 }}>{item.icon}</p>

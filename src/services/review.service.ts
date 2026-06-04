@@ -23,6 +23,14 @@ export const reviewService = {
     return data;
   },
 
+  /** Reviews for a single book (used by the book detail page). */
+  async findByBookId(bookId: string): Promise<ReviewPublicDto[]> {
+    const { data } = await api.get<ReviewPublicDto[]>("/reviews", {
+      params: { relations: "book,reader,reader.user" },
+    });
+    return data.filter(r => r.book?.bookId === bookId || !r.book);
+  },
+
   /** POST /reviews — returns new reviewId */
   async create(dto: CreateReviewInput): Promise<string> {
     const { data } = await api.post<string>("/reviews", dto);

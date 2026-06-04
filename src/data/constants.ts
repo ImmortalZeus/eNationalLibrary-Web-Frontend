@@ -11,4 +11,7 @@ export const GENRE_COLORS: Record<string, string> = {
   Technology: PALETTE.darkNavy,
   Art:        PALETTE.slateGrey,
   Philosophy: PALETTE.mintTeal,
+  Math:       "#5a9bd4",
+  Physics:    "#e05a5a",
+  IT:         "#8e44ad",
 };

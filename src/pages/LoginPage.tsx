@@ -91,7 +91,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
         <h1 style={{ textAlign: "center", fontFamily: "'Playfair Display', serif",
           fontSize: 22, color: PALETTE.darkNavy, margin: "0 0 6px", fontWeight: 700 }}>
-          Library System Login
+          eNationalLibrary System Login
         </h1>
         <p style={{ textAlign: "center", fontSize: 13.5, color: PALETTE.slateGrey, margin: "0 0 28px" }}>
           Sign in to access your account

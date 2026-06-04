@@ -21,6 +21,9 @@ const GENRE_COLORS: Record<string, string> = {
   Art:        PALETTE.slateGrey,
   Philosophy: PALETTE.mintTeal,
   Fiction:    PALETTE.burntOrange,
+  Math:      "#5a9bd4",
+  Physics:   "#e05a5a",
+  IT:       "#8e44ad",
 };
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -85,12 +88,26 @@ function BorrowedRow({ br, onReturn }: { br: BorrowRecordPublicDto; onReturn: (i
 
   return (
     <div style={{ background: "#f0faf7", border: "1px solid #d4f0e8", borderRadius: 10, padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
-      <div style={{ width: 44, height: 44, borderRadius: 8, background: PALETTE.slateGrey, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-        </svg>
+      {/* Book cover — same as recommended */}
+      <div style={{
+        width: 44, height: 44, borderRadius: 8, background: PALETTE.slateGrey,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0, overflow: "hidden",
+      }}>
+        {br.book?.previewUrl ? (
+          <img src={br.book.previewUrl} alt={br.book.title}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            onError={e => { e.currentTarget.style.display = "none"; }}
+          />
+        ) : (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="rgba(255,255,255,0.7)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+          </svg>
+        )}
       </div>
+
       <div style={{ flex: 1 }}>
         <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: PALETTE.darkNavy }}>
           {br.book?.title ?? "Unknown Book"}
@@ -143,7 +160,7 @@ export default function ReaderDashboard({ onLogout, onViewBook, onBrowseMore, on
   useEffect(() => {
     // Live recommendations from the catalog.
     bookService.findAll()
-      .then(books => setRecommended(books.slice(0, 3)))
+      .then(books => setRecommended(books.slice(0, 5)))
       .catch(() => setRecommended([]));
   }, []);
 
@@ -160,7 +177,6 @@ export default function ReaderDashboard({ onLogout, onViewBook, onBrowseMore, on
   const activeBorrows = borrowRecords.filter(br => !br.actualReturnDate);
   const booksRead     = borrowRecords.filter(br => br.actualReturnDate).length;
   const username      = reader?.user?.username ?? user?.username ?? "Reader";
-
   return (
     <div style={{ minHeight: "100vh", background: PALETTE.blushCream, fontFamily: "'DM Sans', sans-serif" }}>
 
@@ -171,7 +187,7 @@ export default function ReaderDashboard({ onLogout, onViewBook, onBrowseMore, on
             <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
             <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
           </svg>
-          <span style={{ color: PALETTE.blushCream, fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 600 }}>Library System</span>
+          <span style={{ color: PALETTE.blushCream, fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 600 }}>eNationalLibrary System</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <NavItem label="Dashboard"    icon={icons.dashboard} active={activePage === "dashboard"} onClick={() => { setActivePage("dashboard"); onNavigate?.("readerDashboard"); }} />
@@ -233,6 +249,7 @@ export default function ReaderDashboard({ onLogout, onViewBook, onBrowseMore, on
             )}
           </div>
 
+
           {/* Recommended */}
           <div style={{ background: "#fff", borderRadius: 12, padding: "24px 28px", border: "1.5px solid #ede5e0" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
@@ -243,29 +260,53 @@ export default function ReaderDashboard({ onLogout, onViewBook, onBrowseMore, on
               {recommended.length === 0 ? (
                 <p style={{ color: PALETTE.slateGrey, fontSize: 13.5 }}>No books in the catalog yet.</p>
               ) : recommended.map(book => {
-                const author = book.authors?.map(a => a.name).join(", ") || "Unknown";
-                const genre = book.genres?.[0]?.label ?? "—";
-                const gc = GENRE_COLORS[genre] ?? PALETTE.slateGrey;
+                const genre      = book.genres?.[0]?.label ?? "Unknown";
+                const author     = book.authors?.map(a => a.name).join(", ") ?? "Unknown";
+                const genreColor = GENRE_COLORS[genre] ?? PALETTE.slateGrey;
                 return (
-                <div key={book.bookId} style={{ background: "#f0faf7", border: "1px solid #d4f0e8", borderRadius: 10, padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 8, background: PALETTE.slateGrey, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-                      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-                    </svg>
+                  <div key={book.bookId} style={{
+                    background: "#f0faf7", border: "1px solid #d4f0e8",
+                    borderRadius: 10, padding: "14px 18px",
+                    display: "flex", alignItems: "center", gap: 14,
+                  }}>
+                    <div style={{
+                      width: 44, height: 44, borderRadius: 8, background: PALETTE.slateGrey,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      flexShrink: 0, overflow: "hidden",
+                    }}>
+                      {book.previewUrl ? (
+                        <img src={book.previewUrl} alt={book.title}
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          onError={e => { e.currentTarget.style.display = "none"; }}
+                        />
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                          stroke="rgba(255,255,255,0.7)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+                        </svg>
+                      )}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: PALETTE.darkNavy }}>{book.title}</p>
+                      <p style={{ margin: "3px 0 0", fontSize: 12, color: PALETTE.slateGrey }}>{author}</p>
+                      <span style={{
+                        display: "inline-block", marginTop: 5, fontSize: 11, fontWeight: 500,
+                        padding: "2px 10px", borderRadius: 20,
+                        background: (genreColor) + "22", color: genreColor,
+                        border: `1px solid ${genreColor}44`,
+                      }}>{genre}</span>
+                    </div>
+                    <button onClick={() => onViewBook?.(book)} style={{
+                      background: "transparent", border: `1.5px solid ${PALETTE.mintTeal}`,
+                      color: PALETTE.darkNavy, fontFamily: "'DM Sans', sans-serif",
+                      fontSize: 13, fontWeight: 500, padding: "6px 16px",
+                      borderRadius: 7, cursor: "pointer",
+                    }}
+                      onMouseEnter={e => { e.currentTarget.style.background = PALETTE.mintTeal; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+                    >View</button>
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: PALETTE.darkNavy }}>{book.title}</p>
-                    <p style={{ margin: "3px 0 0", fontSize: 12, color: PALETTE.slateGrey }}>{author}</p>
-                    <span style={{ display: "inline-block", marginTop: 5, fontSize: 11, fontWeight: 500, padding: "2px 10px", borderRadius: 20, background: gc + "22", color: gc, border: `1px solid ${gc}44` }}>
-                      {genre}
-                    </span>
-                  </div>
-                  <button onClick={() => onViewBook?.(book)} style={{ background: "transparent", border: `1.5px solid ${PALETTE.mintTeal}`, color: PALETTE.darkNavy, fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 500, padding: "6px 16px", borderRadius: 7, cursor: "pointer" }}
-                    onMouseEnter={e => { e.currentTarget.style.background = PALETTE.mintTeal; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
-                  >View</button>
-                </div>
                 );
               })}
             </div>

@@ -37,14 +37,14 @@ const PLANS: Record<"normal" | "vip", Plan> = {
   normal: {
     label: "Normal", color: PALETTE.burntOrange, bg: "#fff8f5",
     border: PALETTE.burntOrange, badge: null,
-    features: ["Access to general collection", "Borrow up to 5 books", "45 days return period", "1 renewal per book", "Standard support"],
+    features: ["Access to general collection", "Borrow up to 5 books", "30 days return period", "1 renewal per book", "Standard support"],
     prices: { "1": { price: 2.99, original: 6.99 }, "3": { price: 7.99, original: null }, "12": { price: 24.99, original: null } },
     months: { "1": 1, "3": 3, "12": 12 },
   },
   vip: {
     label: "VIP", color: "#b8860b", bg: "#fffbf0",
     border: "#d4a017", badge: "Most Popular",
-    features: ["Access to rare & premium books", "Borrow up to 8 books", "60 days return period", "2 renewals per book", "Priority support", "Early access to new arrivals"],
+    features: ["Access to rare & premium books", "Borrow up to 8 books", "45 days return period", "2 renewals per book", "Priority support", "Early access to new arrivals"],
     prices: { "1": { price: 4.99, original: 9.99 }, "3": { price: 13.99, original: null }, "12": { price: 49.99, original: null } },
     months: { "1": 1, "3": 3, "12": 12 },
   },
@@ -67,8 +67,24 @@ function daysRemaining(expiryDate: string): number {
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 }
 
-function isExpired(expiryDate: string): boolean {
+function isExpired(expiryDate: string | null | undefined): boolean {
+  if (!expiryDate) return true;
   return new Date(expiryDate) < new Date();
+}
+
+// Get the card that should currently be active (VIP takes priority)
+function getActiveCard(cards: ReadingCardPublicDto[]): ReadingCardPublicDto | null {
+  const active = cards.filter(c => !isExpired(c.expiryDate));
+  // VIP takes priority
+  const vip = active.find(c => c.type === "VIP");
+  if (vip) return vip;
+  return active.find(c => c.type === "Normal") ?? null;
+}
+
+// Get next card (Normal that will activate after VIP expires)
+function getNextCard(cards: ReadingCardPublicDto[], activeCard: ReadingCardPublicDto | null): ReadingCardPublicDto | null {
+  if (!activeCard || activeCard.type !== "VIP") return null;
+  return cards.find(c => c.type === "Normal" && !isExpired(c.expiryDate) && c.readingCardId !== activeCard.readingCardId) ?? null;
 }
 
 // ── Detail item ───────────────────────────────────────────────────────────
@@ -168,76 +184,244 @@ function PlanCard({ type, plan, duration, selected, onSelect }: {
   );
 }
 
+// ── Confirm Modal ─────────────────────────────────────────────────────────
+function ConfirmModal({ plan, duration, newExpiry, actionLabel, onConfirm, onCancel, subscribing }: {
+  plan: Plan;
+  duration: Duration;
+  newExpiry: string;
+  actionLabel: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  subscribing: boolean;
+}) {
+  return (
+    <div onClick={onCancel} style={{
+      position: "fixed", inset: 0, zIndex: 1000,
+      background: "rgba(64,78,92,0.45)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      padding: 24, backdropFilter: "blur(2px)",
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: "#fff", borderRadius: 16, padding: "36px 40px",
+        maxWidth: 420, width: "100%",
+        boxShadow: "0 16px 48px rgba(64,78,92,0.18)",
+        textAlign: "center", fontFamily: "'DM Sans', sans-serif",
+      }}>
+        {/* Icon */}
+        <div style={{ width: 64, height: 64, borderRadius: "50%",
+          background: plan.color + "22",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          margin: "0 auto 20px" }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+            stroke={plan.color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="1" y="4" width="22" height="16" rx="2"/>
+            <line x1="1" y1="10" x2="23" y2="10"/>
+          </svg>
+        </div>
+
+        <h2 style={{ margin: "0 0 8px", fontFamily: "'Playfair Display', serif",
+          fontSize: 20, fontWeight: 700, color: PALETTE.darkNavy }}>
+          Confirm Subscription
+        </h2>
+        <p style={{ margin: "0 0 24px", fontSize: 13.5, color: PALETTE.slateGrey, lineHeight: 1.6 }}>
+          {actionLabel}
+        </p>
+
+        {/* Summary */}
+        <div style={{ background: PALETTE.blushCream, borderRadius: 12,
+          padding: "16px 20px", marginBottom: 24, textAlign: "left" }}>
+          {[
+            { label: "Plan",       value: plan.label },
+            { label: "Duration",   value: DURATION_LABELS[duration] },
+            { label: "Price",      value: `$${plan.prices[duration].price}` },
+            { label: "Valid Until", value: new Date(newExpiry).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) },
+          ].map(row => (
+            <div key={row.label} style={{ display: "flex", justifyContent: "space-between",
+              alignItems: "center", padding: "6px 0",
+              borderBottom: "1px solid #f0e8e4" }}>
+              <span style={{ fontSize: 13, color: PALETTE.slateGrey }}>{row.label}</span>
+              <span style={{ fontSize: 13.5, fontWeight: 600, color: PALETTE.darkNavy }}>{row.value}</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", gap: 12 }}>
+          <button onClick={onCancel} style={{
+            flex: 1, padding: "12px 0", border: "1.5px solid #ddd",
+            borderRadius: 8, background: "transparent", color: PALETTE.slateGrey,
+            fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 500, cursor: "pointer",
+          }}
+            onMouseEnter={e => (e.currentTarget.style.background = "#f5f5f5")}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+          >Cancel</button>
+          <button onClick={onConfirm} disabled={subscribing} style={{
+            flex: 1, padding: "12px 0", border: "none", borderRadius: 8,
+            background: plan.color, color: plan.label === "VIP" ? PALETTE.darkNavy : "#fff",
+            fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 600,
+            cursor: subscribing ? "not-allowed" : "pointer",
+            opacity: subscribing ? 0.7 : 1,
+          }}
+            onMouseEnter={e => { if (!subscribing) e.currentTarget.style.opacity = "0.88"; }}
+            onMouseLeave={e => (e.currentTarget.style.opacity = subscribing ? "0.7" : "1")}
+          >
+            {subscribing ? "Processing…" : "Confirm"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────
 export default function ReadingCardPage({ onLogout, onNavigate, activePage = "readingCard" }: ReadingCardPageProps) {
-  const { user, logout } = useAuth();
-  const [reader, setReader]         = useState<ReaderPublicDto | null>(null);
-  const [activeCard, setActiveCard] = useState<ReadingCardPublicDto | null>(null);
-  const [loading, setLoading]       = useState(true);
+  const { user, logout, readerId } = useAuth();
+  const [reader, setReader]           = useState<ReaderPublicDto | null>(null);
+  const [loading, setLoading]         = useState(true);
   const [subscribing, setSubscribing] = useState(false);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [error, setError]           = useState<string | null>(null);
-  const [duration, setDuration]     = useState<Duration>("1");
+  const [successMsg, setSuccessMsg]   = useState<string | null>(null);
+  const [error, setError]             = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [duration, setDuration]       = useState<Duration>("1");
   const [selectedPlan, setSelectedPlan] = useState<"normal" | "vip">("normal");
 
   useEffect(() => {
     if (!user?.sub) return;
-    readerService.findByUserId(user.sub).then(r => {
-      if (r) {
-        setReader(r);
-        // Find the most recent non-expired card
-        const cards = r.readingCards ?? [];
-        const active = cards.find(c => c.expiryDate && !isExpired(c.expiryDate))
-          ?? cards[cards.length - 1]
-          ?? null;
-        setActiveCard(active ?? null);
+    const fetch = async () => {
+      setLoading(true);
+      try {
+        let r: ReaderPublicDto | null = null;
+        if (readerId && readerId !== "null") {
+          r = await readerService.findById(readerId);
+        } else {
+          r = await readerService.findByUserId(user.sub);
+        }
+        if (r) setReader(r);
+      } finally {
+        setLoading(false);
       }
-    }).finally(() => setLoading(false));
-  }, [user?.sub]);
+    };
+    fetch();
+  }, [user?.sub, readerId]);
+
+  const allCards  = reader?.readingCards ?? [];
+  const activeCard = getActiveCard(allCards);
+  const nextCard   = getNextCard(allCards, activeCard);
+  const days       = activeCard?.expiryDate ? daysRemaining(activeCard.expiryDate) : 0;
+  const username   = reader?.user?.username ?? user?.username ?? "Reader";
+
+  // Calculate what the new expiry will be
+  const computeNewExpiry = (): string => {
+    const plan     = PLANS[selectedPlan];
+    const months   = plan.months[duration];
+    const typeKey  = selectedPlan === "vip" ? "VIP" : "Normal";
+
+    if (activeCard && activeCard.type === typeKey && !isExpired(activeCard.expiryDate)) {
+      // Same type — extend from current expiry
+      return toISO(addMonths(new Date(activeCard.expiryDate!), months));
+    }
+    // New type or no card — start from today
+    return toISO(addMonths(new Date(), months));
+  };
+
+  // Build the action label for the confirm modal
+  const buildActionLabel = (): string => {
+    const plan    = PLANS[selectedPlan];
+    const typeKey = selectedPlan === "vip" ? "VIP" : "Normal";
+
+    if (activeCard && activeCard.type === typeKey && !isExpired(activeCard.expiryDate)) {
+      return `Your ${plan.label} card will be extended by ${DURATION_LABELS[duration]}.`;
+    }
+    if (activeCard && activeCard.type !== typeKey && !isExpired(activeCard.expiryDate)) {
+      if (selectedPlan === "vip") {
+        return `VIP card activates immediately. Your Normal card will resume after VIP expires.`;
+      }
+      return `A new ${plan.label} card will be created starting today.`;
+    }
+    return `A new ${plan.label} card will be created for ${DURATION_LABELS[duration]}.`;
+  };
 
   const handleSubscribe = async () => {
     if (!reader) return;
     setSubscribing(true);
     setError(null);
     try {
-      const today   = new Date();
-      const expiry  = addMonths(today, PLANS[selectedPlan].months[duration]);
       const plan    = PLANS[selectedPlan];
+      const months  = plan.months[duration];
+      const typeKey = selectedPlan === "vip" ? "VIP" : "Normal";
 
-      await readingCardService.create({
-        label:          `${plan.label} — ${DURATION_LABELS[duration]}`,
-        type:           selectedPlan === "vip" ? "VIP" : "Normal",
-        activationDate: toISO(today),
-        expiryDate:     toISO(expiry),
-        readerId:       reader.userId,
-      });
+      // Find existing active card of same type
+      const sameTypeCard = allCards.find(
+        c => c.type === typeKey && !isExpired(c.expiryDate)
+      );
 
-      // Refresh reader data to get new card
-      const updated = await readerService.findByUserId(user!.sub);
-      if (updated) {
-        setReader(updated);
-        const cards = updated.readingCards ?? [];
-        const active = cards.find(c => c.expiryDate && !isExpired(c.expiryDate))
-          ?? cards[cards.length - 1] ?? null;
-        setActiveCard(active ?? null);
+      if (sameTypeCard && sameTypeCard.expiryDate) {
+        // Same type — extend expiry
+        const newExpiry = toISO(addMonths(new Date(sameTypeCard.expiryDate), months));
+        await readingCardService.update(sameTypeCard.readingCardId, {
+          expiryDate: newExpiry,
+          label: `${plan.label} — Extended`,
+        });
+      } else {
+        // Different type or no card — create new
+        const today  = new Date();
+        const expiry = addMonths(today, months);
+        await readingCardService.create({
+          label:          `${plan.label} — ${DURATION_LABELS[duration]}`,
+          type:           typeKey as "Normal" | "VIP",
+          activationDate: toISO(today),
+          expiryDate:     toISO(expiry),
+          readerId:       reader.userId,
+        });
       }
+
+      // Refresh reader data
+      let updated: ReaderPublicDto | null = null;
+      if (readerId && readerId !== "null") {
+        updated = await readerService.findById(readerId);
+      } else {
+        updated = await readerService.findByUserId(user!.sub);
+      }
+      if (updated) setReader(updated);
+
+      setShowConfirm(false);
       setSuccessMsg(`Successfully subscribed to ${plan.label} plan (${DURATION_LABELS[duration]})!`);
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch {
       setError("Failed to subscribe. Please try again.");
+      setShowConfirm(false);
     } finally {
       setSubscribing(false);
     }
   };
+  const handleSubscribeClick = () => {
+  const typeKey = selectedPlan === "vip" ? "VIP" : "Normal";
 
+  // Block buying Normal when VIP is active
+  if (typeKey === "Normal" && activeCard?.type === "VIP" && !isExpired(activeCard.expiryDate)) {
+    setError(`You cannot buy a Normal card while your VIP card is active. Your Normal card will be available after your VIP card expires on ${new Date(activeCard.expiryDate!).toLocaleDateString()}.`);
+    return;
+  }
+
+  setError(null);
+  setShowConfirm(true);
+};
   const handleLogout = () => { logout(); onLogout(); };
-
-  const cardExpired = activeCard?.expiryDate ? isExpired(activeCard.expiryDate) : true;
-  const days        = activeCard?.expiryDate ? daysRemaining(activeCard.expiryDate) : 0;
-  const username    = reader?.user?.username ?? user?.username ?? "Reader";
 
   return (
     <div style={{ minHeight: "100vh", background: PALETTE.blushCream, fontFamily: "'DM Sans', sans-serif" }}>
+
+      {/* Confirm Modal */}
+      {showConfirm && (
+        <ConfirmModal
+          plan={PLANS[selectedPlan]}
+          duration={duration}
+          newExpiry={computeNewExpiry()}
+          actionLabel={buildActionLabel()}
+          onConfirm={handleSubscribe}
+          onCancel={() => setShowConfirm(false)}
+          subscribing={subscribing}
+        />
+      )}
 
       {/* Navbar */}
       <nav style={{ background: PALETTE.darkNavy, display: "flex", alignItems: "center",
@@ -250,7 +434,7 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
             <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
           </svg>
           <span style={{ color: PALETTE.blushCream, fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 600 }}>
-            Library System
+            eNationalLibrary System
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -294,21 +478,24 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
           <p style={{ color: PALETTE.slateGrey, fontSize: 14 }}>Loading card…</p>
         ) : (
           <>
-            {/* Current card — real data or no-card state */}
-            {activeCard && !cardExpired ? (
+            {/* Active card display */}
+            {activeCard && !isExpired(activeCard.expiryDate) ? (
               <>
-                {/* Card display */}
                 <div style={{
-                  background: `linear-gradient(135deg, #f9ede8 0%, #fdf6f0 100%)`,
-                  border: `1.5px solid ${PALETTE.burntOrange}44`,
+                  background: activeCard.type === "VIP"
+                    ? "linear-gradient(135deg, #fffbf0 0%, #fdf6e3 100%)"
+                    : "linear-gradient(135deg, #f9ede8 0%, #fdf6f0 100%)",
+                  border: `1.5px solid ${activeCard.type === "VIP" ? "#d4a01744" : PALETTE.burntOrange + "44"}`,
                   borderRadius: 16, padding: "28px 32px", marginBottom: 20,
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between",
                     alignItems: "flex-start", marginBottom: 24 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-                        stroke={PALETTE.burntOrange} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+                        stroke={activeCard.type === "VIP" ? "#b8860b" : PALETTE.burntOrange}
+                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="1" y="4" width="22" height="16" rx="2"/>
+                        <line x1="1" y1="10" x2="23" y2="10"/>
                       </svg>
                       <div>
                         <p style={{ margin: 0, fontFamily: "'Playfair Display', serif",
@@ -334,10 +521,10 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
                   <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px",
                     display: "grid", gridTemplateColumns: "1fr 1fr", gap: "18px 32px" }}>
                     {[
-                      { label: "Card ID",      value: activeCard.readingCardId.slice(0, 8).toUpperCase() },
-                      { label: "Card Holder",  value: username },
-                      { label: "Activated",    value: new Date(activeCard.activationDate).toLocaleDateString() },
-                      { label: "Expiry Date",  value: activeCard.expiryDate ? new Date(activeCard.expiryDate).toLocaleDateString() : "—" },
+                      { label: "Card ID",     value: activeCard.readingCardId.slice(0, 8).toUpperCase() },
+                      { label: "Card Holder", value: username },
+                      { label: "Type",        value: activeCard.type },
+                      { label: "Expiry Date", value: activeCard.expiryDate ? new Date(activeCard.expiryDate).toLocaleDateString() : "—" },
                     ].map(f => (
                       <div key={f.label}>
                         <p style={{ margin: 0, fontSize: 12, color: PALETTE.slateGrey }}>{f.label}</p>
@@ -356,8 +543,7 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
                     <DetailItem
                       icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={PALETTE.burntOrange} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>}
-                      label="Card Type"
-                      value={activeCard.type}
+                      label="Card Type" value={activeCard.type}
                     />
                     <DetailItem
                       icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={PALETTE.mintTeal} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>}
@@ -368,6 +554,31 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
                     />
                   </div>
                 </div>
+
+                {/* Next card (Normal waiting after VIP) */}
+                {nextCard && (
+                  <div style={{ background: "#fff", border: "1.5px dashed #e0d5d0",
+                    borderRadius: 16, padding: "20px 28px", marginBottom: 20,
+                    display: "flex", alignItems: "center", gap: 16 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 10,
+                      background: PALETTE.blushCream, display: "flex",
+                      alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke={PALETTE.slateGrey} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="12 6 12 12 16 14"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, color: PALETTE.darkNavy }}>
+                        Normal card queued
+                      </p>
+                      <p style={{ margin: "2px 0 0", fontSize: 12.5, color: PALETTE.slateGrey }}>
+                        {nextCard.label} — activates after VIP expires on {activeCard.expiryDate ? new Date(activeCard.expiryDate).toLocaleDateString() : "—"}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               /* No card state */
@@ -377,12 +588,13 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
                   display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
                     stroke={PALETTE.slateGrey} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+                    <rect x="1" y="4" width="22" height="16" rx="2"/>
+                    <line x1="1" y1="10" x2="23" y2="10"/>
                   </svg>
                 </div>
                 <p style={{ margin: "0 0 6px", fontFamily: "'Playfair Display', serif",
                   fontSize: 17, fontWeight: 700, color: PALETTE.darkNavy }}>
-                  {cardExpired && activeCard ? "Your card has expired" : "No reading card yet"}
+                  No active reading card
                 </p>
                 <p style={{ margin: 0, fontSize: 13.5, color: PALETTE.slateGrey }}>
                   Subscribe to a plan below to get your library card.
@@ -395,7 +607,7 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
               <div style={{ textAlign: "center", marginBottom: 32 }}>
                 <h2 style={{ margin: "0 0 8px", fontFamily: "'Playfair Display', serif",
                   fontSize: 22, fontWeight: 700, color: PALETTE.darkNavy }}>
-                  {activeCard && !cardExpired ? "Upgrade Your Plan" : "Get a Reading Card"}
+                  {activeCard && !isExpired(activeCard.expiryDate) ? "Manage Your Plan" : "Get a Reading Card"}
                 </h2>
                 <p style={{ margin: 0, fontSize: 14, color: PALETTE.slateGrey }}>
                   Choose a plan that fits your reading habits
@@ -431,7 +643,8 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 32 }}>
                 {(["normal", "vip"] as const).map(type => (
                   <PlanCard key={type} type={type} plan={PLANS[type]} duration={duration}
-                    selected={selectedPlan === type} onSelect={() => setSelectedPlan(type)} />
+                    selected={selectedPlan === type}
+                    onSelect={() => { setSelectedPlan(type); setError(null); }} />
                 ))}
               </div>
 
@@ -451,7 +664,7 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
                     {[
                       { feature: "Book Collection",  normal: "General",    vip: "General + Rare" },
                       { feature: "Borrow Limit",      normal: "5 books",    vip: "8 books"        },
-                      { feature: "Return Period",      normal: "45 days",    vip: "60 days"        },
+                      { feature: "Return Period",      normal: "30 days",    vip: "45 days"        },
                       { feature: "Renewals per Book", normal: "1",          vip: "2"              },
                       { feature: "Priority Support",  normal: "✗",          vip: "✓"              },
                       { feature: "Early Access",       normal: "✗",          vip: "✓"              },
@@ -490,23 +703,18 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
                   </div>
                 ) : (
                   <>
-                    <button onClick={handleSubscribe} disabled={subscribing} style={{
+                   <button onClick={handleSubscribeClick} style={{
                       padding: "14px 48px", border: "none", borderRadius: 10,
                       background: selectedPlan === "vip" ? "#d4a017" : PALETTE.burntOrange,
                       color: "#fff", fontFamily: "'DM Sans', sans-serif",
-                      fontSize: 15, fontWeight: 700,
-                      cursor: subscribing ? "not-allowed" : "pointer",
-                      opacity: subscribing ? 0.7 : 1,
+                      fontSize: 15, fontWeight: 700, cursor: "pointer",
                       boxShadow: `0 4px 16px ${selectedPlan === "vip" ? "#d4a01744" : PALETTE.burntOrange + "44"}`,
                     }}
-                      onMouseEnter={e => { if (!subscribing) e.currentTarget.style.opacity = "0.88"; }}
-                      onMouseLeave={e => (e.currentTarget.style.opacity = subscribing ? "0.7" : "1")}
+                      onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
+                      onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
                     >
-                      {subscribing
-                        ? "Processing…"
-                        : `Subscribe to ${PLANS[selectedPlan].label} — $${PLANS[selectedPlan].prices[duration].price} / ${DURATION_LABELS[duration].toLowerCase()}`
-                      }
-                    </button>
+                      Subscribe to {PLANS[selectedPlan].label} — ${PLANS[selectedPlan].prices[duration].price} / {DURATION_LABELS[duration].toLowerCase()}
+                  </button>
                     <p style={{ margin: "10px 0 0", fontSize: 12, color: PALETTE.slateGrey }}>
                       Cancel anytime. No hidden fees.
                     </p>

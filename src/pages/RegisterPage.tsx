@@ -64,7 +64,7 @@ export default function RegisterPage({
       setTimeout(() => {
         setShowToast(false);
         onRegisterSuccess();
-      }, 2500);
+      }, 1000);
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: unknown } } })

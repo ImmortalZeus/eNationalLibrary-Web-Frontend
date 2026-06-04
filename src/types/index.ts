@@ -97,6 +97,7 @@ export interface BookPublicDto {
   authors?: AuthorPublicDto[];
   publishers?: PublisherPublicDto[];
   genres?: GenrePublicDto[];
+  reviews?: ReviewPublicDto[];
 }
 
 export interface BorrowRecordPublicDto {
