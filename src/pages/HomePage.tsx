@@ -14,8 +14,8 @@ interface HomePageProps {
 }
 
 export default function HomePage({ onLoginClick, onRegisterClick }: HomePageProps) {
-  const [query, setQuery]   = useState("");
-  const [books, setBooks]   = useState<BookPublicDto[]>([]);
+  const [query, setQuery]     = useState("");
+  const [books, setBooks]     = useState<BookPublicDto[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -24,6 +24,7 @@ export default function HomePage({ onLoginClick, onRegisterClick }: HomePageProp
       .finally(() => setLoading(false));
   }, []);
 
+  // Search filters ALL books
   const filtered = books.filter(b => {
     const author = b.authors?.map(a => a.name).join(" ") ?? "";
     return (
@@ -32,7 +33,9 @@ export default function HomePage({ onLoginClick, onRegisterClick }: HomePageProp
     );
   });
 
-  const displayed = query ? filtered : books;
+  // When searching — show all matching results
+  // When not searching — show only first 8 as featured
+  const displayed = query ? filtered : books.slice(0, 8);
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -42,7 +45,7 @@ export default function HomePage({ onLoginClick, onRegisterClick }: HomePageProp
         <FeaturesSection />
         {loading
           ? <div style={{ padding: "40px", textAlign: "center", color: "#545F66" }}>Loading books…</div>
-          : <FeaturedBooksSection books={displayed} />
+          : <FeaturedBooksSection books={displayed} isSearching={!!query} />
         }
       </main>
       <Footer />
