@@ -1,5 +1,3 @@
-import type { Book } from "../types";
-
 export const PALETTE = {
   slateGrey:   "#545F66",
   burntOrange: "#BD632F",
@@ -13,14 +11,7 @@ export const GENRE_COLORS: Record<string, string> = {
   Technology: PALETTE.darkNavy,
   Art:        PALETTE.slateGrey,
   Philosophy: PALETTE.mintTeal,
-  Math:      "#5a9bd4",
-  Physics:   "#e05a5a",
-  IT:       "#8e44ad",
+  Math:       "#5a9bd4",
+  Physics:    "#e05a5a",
+  IT:         "#8e44ad",
 };
-
-export const FEATURED_BOOKS: Book[] = [
-  { id: 1, title: "The Great Adventure", author: "John Smith",   genre: "Fiction",     status: "Available" },
-  { id: 2, title: "Learning JavaScript",  author: "Jane Doe",    genre: "Technology",  status: "Available" },
-  { id: 3, title: "History of Art",       author: "Alice Brown", genre: "Art",         status: "Borrowed"  },
-  { id: 4, title: "Modern Philosophy",    author: "Bob Wilson",  genre: "Philosophy",  status: "Available" },
-];

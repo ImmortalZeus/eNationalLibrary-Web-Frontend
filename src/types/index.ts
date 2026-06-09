@@ -144,7 +144,13 @@ export interface ReaderPublicDto {
   waitingBooks?: BookPublicDto[];
   readingCards?: ReadingCardPublicDto[];  // add this line
 }
-// Add to types/index.ts
+
+// ─── Admin console: public DTOs ───────────────────────────────────────────────
+// (Interface-merged addition: backend Publisher also returns a description)
+export interface PublisherPublicDto {
+  description?: string;
+}
+
 export interface ReviewPublicDto {
   reviewId: string;
   rating: number;
@@ -152,4 +158,94 @@ export interface ReviewPublicDto {
   reviewDate: string;
   book?: BookPublicDto;
   reader?: ReaderPublicDto;
+}
+
+export interface AdminPublicDto {
+  userId: string;          // this is the admin's userId
+  user?: User;
+}
+
+// ─── Admin console: create / update payloads (mirror backend Create*/Update* DTOs) ─
+export interface UserInput {
+  username: string;
+  gender: UserGender;
+  email: string;
+  password: string;
+  phoneNumber?: string | null;
+  role: UserRole;
+  status: UserStatus;
+}
+export type UpdateUserInput = Partial<UserInput>;
+
+export interface CreateAuthorInput {
+  name: string;
+  dateOfBirth?: string;            // "YYYY-MM-DD"
+  dateOfDeath?: string | null;
+  description?: string;
+}
+export type UpdateAuthorInput = Partial<CreateAuthorInput>;
+
+export interface CreateGenreInput {
+  label: string;
+  description: string;
+}
+export type UpdateGenreInput = Partial<CreateGenreInput>;
+
+export interface CreatePublisherInput {
+  name: string;
+  description: string;
+}
+export type UpdatePublisherInput = Partial<CreatePublisherInput>;
+
+export interface CreateBookInput {
+  title: string;
+  description: string;
+  previewUrl: string;
+  authorIds?: string[];
+  publisherIds?: string[];
+  genreIds?: string[];
+}
+export type UpdateBookInput = Partial<CreateBookInput>;
+
+export interface CreateReaderInput {
+  address?: string | null;
+  user: UserInput;
+}
+export interface UpdateReaderInput {
+  address?: string | null;
+  user?: UpdateUserInput;
+}
+
+export interface CreateAdminInput {
+  user: UserInput;
+}
+export interface UpdateAdminInput {
+  user?: UpdateUserInput;
+}
+
+export interface CreateReadingCardInput {
+  label: string;
+  type: ReadingCardType;
+  activationDate: string;          // "YYYY-MM-DD"
+  expiryDate?: string | null;
+  readerId?: string;
+}
+// backend strips readerId on update
+export type UpdateReadingCardInput = Partial<Omit<CreateReadingCardInput, "readerId">>;
+
+export interface CreateReviewInput {
+  rating: number;                  // 1..5
+  comment: string;
+  reviewDate: string;              // "YYYY-MM-DD"
+  bookId?: string;
+  readerId?: string;
+}
+export type UpdateReviewInput = Partial<CreateReviewInput>;
+
+// backend strips readerId & bookId on update
+export interface UpdateBorrowRecordInput {
+  quantity?: number;
+  borrowDate?: string;
+  dueDate?: string;
+  actualReturnDate?: string | null;
 }

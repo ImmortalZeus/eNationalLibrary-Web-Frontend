@@ -5,9 +5,10 @@ import BookCard from "./BookCard";
 interface FeaturedBooksSectionProps {
   books: BookPublicDto[];
   isSearching?: boolean;
+  emptyMessage?: string;
 }
 
-export default function FeaturedBooksSection({ books, isSearching }: FeaturedBooksSectionProps) {
+export default function FeaturedBooksSection({ books, isSearching, emptyMessage = "No books match your search." }: FeaturedBooksSectionProps) {
   return (
     <section style={{ padding: "60px 40px 72px", background: PALETTE.blushCream }}>
       <h2 style={{
@@ -19,7 +20,7 @@ export default function FeaturedBooksSection({ books, isSearching }: FeaturedBoo
 
       {books.length === 0 ? (
         <p style={{ fontFamily: "'DM Sans', sans-serif", color: PALETTE.slateGrey, fontSize: 14 }}>
-          No books match your search.
+          {emptyMessage}
         </p>
       ) : (
         <div style={{

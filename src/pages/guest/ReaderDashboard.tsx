@@ -3,10 +3,11 @@ import { useState, useEffect } from "react";
 import { PALETTE } from "../../data/constants";
 import { useAuth } from "../../context/AuthContext";
 import { readerService } from "../../services/reader.service";
-import api from "../../services/api";
-import type { ReaderPublicDto, BorrowRecordPublicDto } from "../../types";
 import { bookService } from "../../services/book.service";
-import type { BookPublicDto } from "../../types";
+import { reviewService } from "../../services/review.service";
+import api from "../../services/api";
+import type { ReaderPublicDto, BorrowRecordPublicDto, BookPublicDto } from "../../types";
+
 interface ReaderDashboardProps {
   onLogout: () => void;
   onViewBook?: (book: any) => void;
@@ -14,8 +15,6 @@ interface ReaderDashboardProps {
   onNavigate?: (page: string) => void;
   onViewAll?: () => void;
 }
-
-// ── Mock data ─────────────────────────────────────────────────────────────────
 
 const GENRE_COLORS: Record<string, string> = {
   Technology: PALETTE.darkNavy,
@@ -89,7 +88,6 @@ function BorrowedRow({ br, onReturn }: { br: BorrowRecordPublicDto; onReturn: (i
 
   return (
     <div style={{ background: "#f0faf7", border: "1px solid #d4f0e8", borderRadius: 10, padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
-      
       {/* Book cover — same as recommended */}
       <div style={{
         width: 44, height: 44, borderRadius: 8, background: PALETTE.slateGrey,
@@ -141,32 +139,30 @@ export default function ReaderDashboard({ onLogout, onViewBook, onBrowseMore, on
   const [activePage, setActivePage] = useState<ActivePage>("dashboard");
   const [reader, setReader]         = useState<ReaderPublicDto | null>(null);
   const [borrowRecords, setBorrowRecords] = useState<BorrowRecordPublicDto[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [recommendedBooks, setRecommendedBooks] = useState<BookPublicDto[]>([]);
+  const [recommended, setRecommended] = useState<BookPublicDto[]>([]);
   const [reviewCount, setReviewCount] = useState(0);
+  const [loading, setLoading]       = useState(true);
 
-  // Add to useEffect:
-useEffect(() => {
-  if (!user?.sub) return;
+  useEffect(() => {
+    if (!user?.sub) return;
+    readerService.findByUserId(user.sub).then(r => {
+      if (r) {
+        setReader(r);
+        setBorrowRecords(r.borrowRecords ?? []);
+        // Reviews written by this reader (best-effort; endpoint is auth-guarded).
+        reviewService.findAll()
+          .then(all => setReviewCount(all.filter(rv => rv.reader?.userId === r.userId).length))
+          .catch(() => {});
+      }
+    }).finally(() => setLoading(false));
+  }, [user?.sub]);
 
-  readerService.findByUserId(user.sub).then(r => {
-    if (r) {
-      setReader(r);
-      setBorrowRecords(r.borrowRecords ?? []);
-
-      // Fetch review count for this reader
-      api.get("/reviews", { params: { relations: "reader" } }).then(res => {
-        const allReviews = res.data as { reader?: { userId?: string } }[];
-        const mine = allReviews.filter(rv => rv.reader?.userId === r.userId);
-        setReviewCount(mine.length);
-      });
-    }
-  }).finally(() => setLoading(false));
-
-  bookService.findAll().then(books => {
-    setRecommendedBooks(books.slice(0, 5));
-  });
-}, [user?.sub]);
+  useEffect(() => {
+    // Live recommendations from the catalog.
+    bookService.findAll()
+      .then(books => setRecommended(books.slice(0, 5)))
+      .catch(() => setRecommended([]));
+  }, []);
 
   const handleLogout = () => { logout(); onLogout(); };
 
@@ -179,8 +175,8 @@ useEffect(() => {
   };
 
   const activeBorrows = borrowRecords.filter(br => !br.actualReturnDate);
+  const booksRead     = borrowRecords.filter(br => br.actualReturnDate).length;
   const username      = reader?.user?.username ?? user?.username ?? "Reader";
-  const returnedBorrows = borrowRecords.filter(br => !!br.actualReturnDate);
   return (
     <div style={{ minHeight: "100vh", background: PALETTE.blushCream, fontFamily: "'DM Sans', sans-serif" }}>
 
@@ -222,18 +218,8 @@ useEffect(() => {
             value={loading ? "…" : `${activeBorrows.length} Book${activeBorrows.length !== 1 ? "s" : ""}`}
             accent={PALETTE.burntOrange} icon={icons.book}
           />
-          <StatCard
-            label="Books Read"
-            value={loading ? "…" : `${returnedBorrows.length} Book${returnedBorrows.length !== 1 ? "s" : ""}`}
-            accent={PALETTE.mintTeal}
-            icon={icons.check}
-          />
-          <StatCard
-            label="Reviews Written"
-            value={loading ? "…" : `${reviewCount} Review${reviewCount !== 1 ? "s" : ""}`}
-            accent={PALETTE.slateGrey}
-            icon={icons.star}
-          />
+          <StatCard label="Books Read"      value={loading ? "…" : `${booksRead} Book${booksRead !== 1 ? "s" : ""}`}   accent={PALETTE.mintTeal}  icon={icons.check} />
+          <StatCard label="Reviews Written" value={loading ? "…" : `${reviewCount} Review${reviewCount !== 1 ? "s" : ""}`} accent={PALETTE.slateGrey} icon={icons.star}  />
           <StatCard
             label="Upcoming Due"
             value={activeBorrows.length > 0 ? new Date(activeBorrows[0].dueDate).toLocaleDateString() : "None"}
@@ -271,7 +257,9 @@ useEffect(() => {
               <span onClick={onBrowseMore} style={{ fontSize: 13, color: PALETTE.burntOrange, cursor: "pointer", fontWeight: 500 }}>Browse More</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {recommendedBooks.map(book => {
+              {recommended.length === 0 ? (
+                <p style={{ color: PALETTE.slateGrey, fontSize: 13.5 }}>No books in the catalog yet.</p>
+              ) : recommended.map(book => {
                 const genre      = book.genres?.[0]?.label ?? "Unknown";
                 const author     = book.authors?.map(a => a.name).join(", ") ?? "Unknown";
                 const genreColor = GENRE_COLORS[genre] ?? PALETTE.slateGrey;

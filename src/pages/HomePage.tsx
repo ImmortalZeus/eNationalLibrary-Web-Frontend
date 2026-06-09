@@ -19,12 +19,13 @@ export default function HomePage({ onLoginClick, onRegisterClick }: HomePageProp
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // /books is auth-guarded; guests get 401 and simply see an empty section.
     bookService.findAll()
       .then(data => setBooks(data))
+      .catch(() => setBooks([]))
       .finally(() => setLoading(false));
   }, []);
 
-  // Search filters ALL books
   const filtered = books.filter(b => {
     const author = b.authors?.map(a => a.name).join(" ") ?? "";
     return (
@@ -33,9 +34,13 @@ export default function HomePage({ onLoginClick, onRegisterClick }: HomePageProp
     );
   });
 
-  // When searching — show all matching results
-  // When not searching — show only first 8 as featured
-  const displayed = query ? filtered : books.slice(0, 8);
+  const displayed = query ? filtered : books;
+
+  const emptyMessage = loading
+    ? "Loading…"
+    : query
+      ? "No books match your search."
+      : "Sign in to explore our collection.";
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -43,10 +48,7 @@ export default function HomePage({ onLoginClick, onRegisterClick }: HomePageProp
       <main style={{ flex: 1 }}>
         <HeroSection query={query} setQuery={setQuery} />
         <FeaturesSection />
-        {loading
-          ? <div style={{ padding: "40px", textAlign: "center", color: "#545F66" }}>Loading books…</div>
-          : <FeaturedBooksSection books={displayed} isSearching={!!query} />
-        }
+        <FeaturedBooksSection books={displayed} isSearching={!!query} emptyMessage={emptyMessage} />
       </main>
       <Footer />
     </div>
