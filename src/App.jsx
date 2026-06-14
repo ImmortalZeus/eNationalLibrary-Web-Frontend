@@ -1,4 +1,6 @@
+
 import { useState } from "react";
+import { useAuth } from "./context/AuthContext";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -11,89 +13,116 @@ import ProfilePage from "./pages/guest/ProfilePage";
 import AdminApp from "./pages/admin/AdminApp";
 
 export default function App() {
-  const [page, setPage] = useState("home");
-  const [selectedBook, setSelectedBook] = useState(undefined);
-  const [prevPage, setPrevPage] = useState("readerDashboard");
+const { logout } = useAuth();
 
-  const goToBookDetail = (book, from = "readerDashboard") => {
-  setSelectedBook(book);   // book is now BookPublicDto
-  setPrevPage(from);
-  setPage("bookDetail");
+const [page, setPage] = useState("home");
+const [selectedBook, setSelectedBook] = useState(undefined);
+const [prevPage, setPrevPage] = useState("readerDashboard");
+console.log("Current page:", page);
+const handleLogout = () => {
+logout(); // clear token, user, readerId
+setSelectedBook(undefined);
+setPage("home");
 };
 
-  if (page === "login") {
-    return <LoginPage
-      onNavigateToRegister={() => setPage("register")}
-      onNavigateToHome={() => setPage("home")}
-      onLoginSuccess={(role) => setPage(role === "Admin" ? "admin" : "readerDashboard")}
-    />;
-  }
+const goToBookDetail = (book, from = "readerDashboard") => {
+setSelectedBook(book);
+setPrevPage(from);
+setPage("bookDetail");
+};
 
-  if (page === "admin") {
-    return <AdminApp onLogout={() => setPage("home")} />;
-  }
+if (page === "login") {
+return (
+<LoginPage
+onNavigateToRegister={() => setPage("register")}
+onNavigateToHome={() => setPage("home")}
+onLoginSuccess={(role) =>
+setPage(role === "Admin" ? "admin" : "readerDashboard")
+}
+/>
+);
+}
 
-  if (page === "register") {
-    return <RegisterPage
-      onNavigateToLogin={() => setPage("login")}
-      onNavigateToHome={() => setPage("home")}
-      onRegisterSuccess={() => setPage("home")}
-    />;
-  }
+if (page === "admin") {
+return <AdminApp onLogout={handleLogout} />;
+}
 
-  if (page === "readerDashboard") {
-    return <ReaderDashboard
-      onLogout={() => setPage("home")}
-      onViewBook={(book) => goToBookDetail(book, "readerDashboard")}
-      onBrowseMore={() => setPage("browseBooks")}
-      onViewAll={() => setPage("myRecords")}
-      onNavigate={setPage}
-    />;
-  }
+if (page === "register") {
+return (
+<RegisterPage
+onNavigateToLogin={() => setPage("login")}
+onNavigateToHome={() => setPage("home")}
+onRegisterSuccess={() => setPage("home")}
+/>
+);
+}
 
-  if (page === "browseBooks") {
-    return <BrowseBooksPage
-      onBack={() => setPage("home")}
-      onViewBook={(book) => goToBookDetail(book, "browseBooks")}
-      activePage="browseBooks"
-      onNavigate={setPage}
-    />;
-  }
+if (page === "readerDashboard") {
+return (
+<ReaderDashboard
+onLogout={handleLogout}
+onViewBook={(book) => goToBookDetail(book, "readerDashboard")}
+onBrowseMore={() => setPage("browseBooks")}
+onViewAll={() => setPage("myRecords")}
+onNavigate={setPage}
+/>
+);
+}
 
-  if (page === "myRecords") {
-    return <MyRecordsPage
-      onLogout={() => setPage("home")}
-      onNavigate={setPage}
-      activePage="myRecords"
-    />;
-  }
+if (page === "browseBooks") {
+return (
+<BrowseBooksPage
+onBack={() => setPage("home")}
+onViewBook={(book) => goToBookDetail(book, "browseBooks")}
+activePage="browseBooks"
+onNavigate={setPage}
+/>
+);
+}
 
-  if (page === "readingCard") {
-    return <ReadingCardPage
-      onLogout={() => setPage("home")}
-      onNavigate={setPage}
-      activePage="readingCard"
-    />;
-  }
+if (page === "myRecords") {
+return ( <MyRecordsPage
+     onLogout={handleLogout}
+     onNavigate={setPage}
+     activePage="myRecords"
+   />
+);
+}
 
-  if (page === "profile") {
-    return <ProfilePage
-      onLogout={() => setPage("home")}
-      onNavigate={setPage}
-      activePage="profile"
-    />;
-  }
+if (page === "readingCard") {
+return ( <ReadingCardPage
+     onLogout={handleLogout}
+     onNavigate={setPage}
+     activePage="readingCard"
+   />
+);
+}
 
-  if (page === "bookDetail") {
-    return <BookDetailPage
-      book={selectedBook}
-      onBack={() => setPage(prevPage)}
-      onNavigate={setPage}
-    />;
-  }
+if (page === "profile") {
+return ( <ProfilePage
+     onLogout={handleLogout}
+     onNavigate={setPage}
+     activePage="profile"
+   />
+);
+}
 
-  return <HomePage
-    onLoginClick={() => setPage("login")}
-    onRegisterClick={() => setPage("register")}
-  />;
+if (page === "bookDetail") {
+return (
+<BookDetailPage
+book={selectedBook}
+onBack={() => setPage(prevPage)}
+onNavigate={setPage}
+onLoginRequired={() => setPage("login")}
+/>
+);
+}
+
+return (
+<HomePage
+onLoginClick={() => setPage("login")}
+onRegisterClick={() => setPage("register")}
+onViewBook={(book) => goToBookDetail(book, "home")}
+/>
+);
 }

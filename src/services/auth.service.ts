@@ -10,8 +10,8 @@ export const authService = {
   },
 
   /** POST /readers — creates user + reader in one call */
-  async register(dto: RegisterDto): Promise<ReaderPublicDto> {
-    const { data } = await api.post<ReaderPublicDto>("/readers", {
+async register(dto: RegisterDto): Promise<string> {
+  const { data } = await api.post<string>("/readers", {
       address: null,
       user: {
         username:    dto.username,

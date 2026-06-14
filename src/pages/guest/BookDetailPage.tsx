@@ -12,6 +12,7 @@ interface BookDetailPageProps {
   book?: BookPublicDto;
   onBack: () => void;
   onNavigate?: (page: string) => void;
+  onLoginRequired?: () => void;  // add this — called when guest tries to borrow
 }
 
 function Stars({ rating, max = 5, size = 16, interactive = false, onRate }: {
@@ -125,7 +126,7 @@ function WriteReviewForm({ onSubmit, onCancel }: {
   );
 }
 
-export default function BookDetailPage({ book, onBack, onNavigate }: BookDetailPageProps) {
+export default function BookDetailPage({ book, onBack, onNavigate, onLoginRequired }: BookDetailPageProps) {
   const { user, readerId } = useAuth();
   const [reviews, setReviews]               = useState<ReviewPublicDto[]>([]);
   const [showReviewForm, setShowReviewForm] = useState(false);
@@ -153,6 +154,17 @@ export default function BookDetailPage({ book, onBack, onNavigate }: BookDetailP
     }
   }, [book?.bookId]);
 
+  useEffect(() => {
+  if (!user) {
+    setCurrentReaderId(null);
+  } else if (readerId && readerId !== "null") {
+    setCurrentReaderId(readerId);
+  } else if (user.sub) {
+    readerService.findByUserId(user.sub).then(r => {
+      if (r) setCurrentReaderId(r.userId);
+    });
+  }
+}, [user, readerId]);
   if (!book) {
     return (
       <div style={{ minHeight: "100vh", background: PALETTE.blushCream,
@@ -261,7 +273,13 @@ export default function BookDetailPage({ book, onBack, onNavigate }: BookDetailP
             </div>
           )}
 
-          <button onClick={() => setShowBorrowModal(true)} style={{
+          <button onClick={() => {
+            if (!user) {
+              onLoginRequired?.();  // redirect to login if not logged in
+            } else {
+              setShowBorrowModal(true);
+            }
+          }} style={{
             width: "100%", padding: "13px 0", background: PALETTE.burntOrange,
             border: "none", borderRadius: 8, color: "#fff",
             fontFamily: "'DM Sans', sans-serif", fontSize: 14.5, fontWeight: 600,
@@ -269,7 +287,7 @@ export default function BookDetailPage({ book, onBack, onNavigate }: BookDetailP
           }}
             onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
             onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
-          >Borrow This Book</button>
+          >{user ? "Borrow This Book" : "Login to Borrow"}</button>
         </div>
 
         {/* Right: details */}
@@ -308,8 +326,11 @@ export default function BookDetailPage({ book, onBack, onNavigate }: BookDetailP
                 fontSize: 17, fontWeight: 700, color: PALETTE.darkNavy }}>
                 Reader Reviews {reviews.length > 0 && `(${reviews.length})`}
               </h2>
-              {!showReviewForm && !alreadyReviewed && (
-                <button onClick={() => setShowReviewForm(true)} style={{
+              {!showReviewForm && !alreadyReviewed && user && (
+                <button onClick={() => {
+                    if (!user) { onLoginRequired?.(); return; }
+                    setShowReviewForm(true);
+                  }}  style={{
                   display: "flex", alignItems: "center", gap: 6, background: "transparent",
                   border: `1.5px solid ${PALETTE.burntOrange}`, color: PALETTE.burntOrange,
                   fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 500,

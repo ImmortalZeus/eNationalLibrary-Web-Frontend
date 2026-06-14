@@ -3,15 +3,18 @@ import { GENRE_COLORS, PALETTE } from "../data/constants";
 
 interface BookCardProps {
   book: BookPublicDto;
+  onClick?: () => void;
 }
 
-export default function BookCard({ book }: BookCardProps) {
+export default function BookCard({ book, onClick }: BookCardProps) {
   const genre      = book.genres?.[0]?.label ?? "Unknown";
   const author     = book.authors?.map(a => a.name).join(", ") ?? "Unknown";
   const genreColor = GENRE_COLORS[genre] ?? PALETTE.slateGrey;
 
   return (
-    <div style={{
+    <div
+    onClick={onClick}
+     style={{
       background: "#fff", borderRadius: 10, overflow: "hidden",
       border: "1.5px solid #ede5e0", display: "flex", flexDirection: "column",
       transition: "transform 0.18s, box-shadow 0.18s", cursor: "pointer",

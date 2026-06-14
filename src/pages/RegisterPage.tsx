@@ -33,49 +33,40 @@ export default function RegisterPage({
       setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    if (form.password !== form.confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
-    setLoading(true);
-    try {
-      await authService.register({
-        username:    form.username,
-        email:       form.email,
-        password:    form.password,
-        gender:      form.gender,
-        phoneNumber: form.phoneNumber || null,
-        role:        "Reader",   // readers self-register; admins are created by admin
-        status:      "Active",
-      });
-    const { accessToken } = await authService.login({
-      usernameOrEmail: form.username,
-      password: form.password,
+  e.preventDefault();
+  setError(null);
+  if (form.password !== form.confirmPassword) {
+    setError("Passwords do not match.");
+    return;
+  }
+  setLoading(true);
+  try {
+    await authService.register({
+      username:    form.username,
+      email:       form.email,
+      password:    form.password,
+      gender:      form.gender,
+      phoneNumber: form.phoneNumber || null,
+      role:        "Reader",
+      status:      "Active",
     });
-    saveToken(accessToken);
-    const { jwtDecode } = await import("jwt-decode");
-    const { sub } = jwtDecode<{ sub: string }>(accessToken);
-    const readers = await import("../services/reader.service").then(m => m.readerService.findAll());
-    const mine = readers.find(r => r.user?.userId === sub);
-    if (mine) setReaderId(mine.userId);
-      setShowToast(true);
-      setTimeout(() => {
-        setShowToast(false);
-        onRegisterSuccess();
-      }, 1000);
-    } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: unknown } } })
-          ?.response?.data?.message;
-      if (Array.isArray(msg))      setError(msg.join(" "));
-      else if (typeof msg === "string") setError(msg);
-      else setError("Registration failed. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+
+    setShowToast(true);
+    setTimeout(() => {
+      setShowToast(false);
+      onNavigateToLogin(); // go to login page instead of auto-logging in
+    }, 1500);
+  } catch (err: unknown) {
+    const msg =
+      (err as { response?: { data?: { message?: unknown } } })
+        ?.response?.data?.message;
+    if (Array.isArray(msg))           setError(msg.join(" "));
+    else if (typeof msg === "string") setError(msg);
+    else setError("Registration failed. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const inputStyle: React.CSSProperties = {
     width: "100%", border: "1.5px solid #e0d5d0", borderRadius: 8,

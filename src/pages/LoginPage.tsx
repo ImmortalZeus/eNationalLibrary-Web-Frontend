@@ -34,22 +34,20 @@ const handleSubmit = async (e: React.FormEvent) => {
   setLoading(true);
   try {
     const { accessToken } = await authService.login({ usernameOrEmail, password });
-    saveToken(accessToken);
-
+    
     const { jwtDecode } = await import("jwt-decode");
     const { role, sub } = jwtDecode<{ role: UserRole; sub: string }>(accessToken);
 
-    // Store readerId for Reader accounts
-    if (role === "Reader") {
-      try {
-        const { readerService } = await import("../services/reader.service");
-        const readers = await readerService.findAll();
-        const mine = readers.find(r => r.user?.userId === sub);
-        if (mine) setReaderId(mine.userId);
-      } catch {
-        // non-fatal — app still works, just slower fallback
-      }
-    }
+    // Save token FIRST so subsequent requests have the auth header
+    saveToken(accessToken);
+
+if (role === "Reader") {
+  const { readerService } = await import("../services/reader.service");
+  const mine = await readerService.findById(sub);
+  console.log("sub:", sub);
+  console.log("mine:", mine);
+  if (mine?.userId) setReaderId(mine.userId);
+}
 
     onLoginSuccess(role);
   } catch (err: unknown) {

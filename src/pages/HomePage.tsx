@@ -11,9 +11,10 @@ import type { BookPublicDto } from "../types";
 interface HomePageProps {
   onLoginClick: () => void;
   onRegisterClick: () => void;
+  onViewBook?: (book: BookPublicDto) => void;
 }
 
-export default function HomePage({ onLoginClick, onRegisterClick }: HomePageProps) {
+export default function HomePage({ onLoginClick, onRegisterClick, onViewBook }: HomePageProps) {
   const [query, setQuery]     = useState("");
   const [books, setBooks]     = useState<BookPublicDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,7 +49,10 @@ export default function HomePage({ onLoginClick, onRegisterClick }: HomePageProp
       <main style={{ flex: 1 }}>
         <HeroSection query={query} setQuery={setQuery} />
         <FeaturesSection />
-        <FeaturedBooksSection books={displayed} isSearching={!!query} emptyMessage={emptyMessage} />
+        {loading
+          ? <div style={{ padding: "40px", textAlign: "center", color: "#545F66" }}>Loading books…</div>
+          : <FeaturedBooksSection books={displayed} isSearching={!!query} onViewBook={onViewBook} />
+        }
       </main>
       <Footer />
     </div>

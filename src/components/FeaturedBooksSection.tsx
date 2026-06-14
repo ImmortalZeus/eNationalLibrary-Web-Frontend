@@ -6,9 +6,10 @@ interface FeaturedBooksSectionProps {
   books: BookPublicDto[];
   isSearching?: boolean;
   emptyMessage?: string;
+  onViewBook?: (book: BookPublicDto) => void; 
 }
 
-export default function FeaturedBooksSection({ books, isSearching, emptyMessage = "No books match your search." }: FeaturedBooksSectionProps) {
+export default function FeaturedBooksSection({ books, isSearching, emptyMessage = "No books match your search.", onViewBook }: FeaturedBooksSectionProps) {
   return (
     <section style={{ padding: "60px 40px 72px", background: PALETTE.blushCream }}>
       <h2 style={{
@@ -31,7 +32,7 @@ export default function FeaturedBooksSection({ books, isSearching, emptyMessage 
           gap: 16,
         }}>
           {books.map(book => (
-            <BookCard key={book.bookId} book={book} />
+            <BookCard key={book.bookId} book={book} onClick={() => onViewBook?.(book)} />
           ))}
         </div>
       )}

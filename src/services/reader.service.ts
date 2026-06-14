@@ -24,26 +24,25 @@ export const readerService = {
     return data;
   },
 
-  async findById(readerId: string): Promise<ReaderPublicDto> {
-    const { data } = await api.get<ReaderPublicDto>(`/readers/${readerId}`, {
+async findById(readerId: string): Promise<ReaderPublicDto | null> {
+  try {
+    const { data } = await api.get<ReaderPublicDto | null>(`/readers/${readerId}`, {
       params: { relations: ALL_RELATIONS },
     });
-    return data;
-  },
+    return data ?? null;
+  } catch {
+    return null;
+  }
+},
 
-  async findByUserId(userId: string): Promise<ReaderPublicDto | null> {
-    const storedReaderId = localStorage.getItem("readerId");
-    if (storedReaderId && storedReaderId !== "null") {
-      try {
-        return await this.findById(storedReaderId);
-      } catch {
-        // fallback to scan
-      }
-    }
-    const readers = await this.findAll();
-    return readers.find(r => r.user?.userId === userId) ?? null;
-  },
-
+async findByUserId(userId: string): Promise<ReaderPublicDto | null> {
+  const storedReaderId = localStorage.getItem("readerId");
+  if (storedReaderId && storedReaderId !== "null") {
+    const r = await this.findById(storedReaderId);
+    if (r) return r;
+  }
+  return await this.findById(userId);
+},
   /** POST /readers - creates user + reader, returns new readerId (userId) */
   async create(dto: CreateReaderInput): Promise<string> {
     const { data } = await api.post<string>("/readers", dto);
