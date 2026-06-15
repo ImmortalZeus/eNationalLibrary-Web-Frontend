@@ -56,6 +56,35 @@ export default function ManageReadingCardsPage() {
           { header: "Reader", render: c => c.reader?.user?.username ?? "—" },
           { header: "Activated", render: c => fmt(c.activationDate) },
           { header: "Expires", render: c => fmt(c.expiryDate) },
+          { header: "Price", render: c => {
+            if (c.discountedPrice == null) return "—";
+            const discounted = c.originalPrice != null && c.discountedPrice < c.originalPrice;
+            return (
+              <span>
+                {discounted && (
+                  <span style={{ textDecoration: "line-through", color: PALETTE.slateGrey, marginRight: 6 }}>
+                    {c.originalPrice}
+                  </span>
+                )}
+                <span style={{ fontWeight: 600, color: discounted ? PALETTE.burntOrange : PALETTE.darkNavy }}>
+                  {c.discountedPrice}
+                </span>
+              </span>
+            );
+          } },
+          { header: "Promotion", render: c => {
+            if (!c.appliedPromotion) return <span style={{ color: PALETTE.slateGrey }}>—</span>;
+            const limits = [
+              c.effectiveMaxBorrowedBooks != null ? `${c.effectiveMaxBorrowedBooks} books` : null,
+              c.effectiveMaxBorrowDurationDays != null ? `${c.effectiveMaxBorrowDurationDays} days` : null,
+            ].filter(Boolean).join(" · ");
+            return (
+              <div>
+                <Badge label={c.appliedPromotion.name} color={PALETTE.mintTeal} />
+                {limits && <div style={{ fontSize: 11.5, color: PALETTE.slateGrey, marginTop: 3 }}>{limits}</div>}
+              </div>
+            );
+          } },
         ]}
         actions={c => <>
           <Button small variant="secondary" onClick={() => setEditing(c)}>Edit</Button>
