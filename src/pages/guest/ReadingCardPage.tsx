@@ -37,14 +37,14 @@ const PLANS: Record<"normal" | "vip", Plan> = {
   normal: {
     label: "Normal", color: PALETTE.burntOrange, bg: "#fff8f5",
     border: PALETTE.burntOrange, badge: null,
-    features: ["Access to general collection", "Borrow up to 5 books", "30 days return period", "1 renewal per book", "Standard support"],
+    features: ["Access to general collection", "Borrow up to 5 books", "45 days return period", "1 renewal per book", "Standard support"],
     prices: { "1": { price: 2.99, original: 6.99 }, "3": { price: 7.99, original: null }, "12": { price: 24.99, original: null } },
     months: { "1": 1, "3": 3, "12": 12 },
   },
   vip: {
     label: "VIP", color: "#b8860b", bg: "#fffbf0",
     border: "#d4a017", badge: "Most Popular",
-    features: ["Access to rare & premium books", "Borrow up to 8 books", "45 days return period", "2 renewals per book", "Priority support", "Early access to new arrivals"],
+    features: ["Access to rare & premium books", "Borrow up to 8 books", "60 days return period", "2 renewals per book", "Priority support", "Early access to new arrivals"],
     prices: { "1": { price: 4.99, original: 9.99 }, "3": { price: 13.99, original: null }, "12": { price: 49.99, original: null } },
     months: { "1": 1, "3": 3, "12": 12 },
   },
@@ -664,7 +664,7 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
                     {[
                       { feature: "Book Collection",  normal: "General",    vip: "General + Rare" },
                       { feature: "Borrow Limit",      normal: "5 books",    vip: "8 books"        },
-                      { feature: "Return Period",      normal: "30 days",    vip: "45 days"        },
+                      { feature: "Return Period",      normal: "45 days",    vip: "60 days"        },
                       { feature: "Renewals per Book", normal: "1",          vip: "2"              },
                       { feature: "Priority Support",  normal: "✗",          vip: "✓"              },
                       { feature: "Early Access",       normal: "✗",          vip: "✓"              },

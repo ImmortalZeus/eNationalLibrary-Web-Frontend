@@ -19,8 +19,8 @@ const BORROW_LIMITS: Record<string, number> = {
 };
 
 const BORROW_DAYS: Record<string, number> = {
-  Normal: 30,
-  VIP:    45,
+  Normal: 45,
+  VIP:    60,
 };
 const BORROW_RENEWALS: Record<string, number> = {
   Normal: 1,
@@ -224,7 +224,7 @@ export default function BorrowModal({ bookTitle, bookId, onConfirm, onCancel, on
               Successfully Borrowed!
             </h2>
             <p style={{ margin: 0, fontSize: 13.5, color: PALETTE.slateGrey, lineHeight: 1.6 }}>
-              Please return it within <strong>{BORROW_DAYS[cardType] ?? 30} days</strong>.
+              Please return it within <strong>{BORROW_DAYS[cardType] ?? 45} days</strong>.
             </p>
           </>
 
@@ -249,14 +249,14 @@ export default function BorrowModal({ bookTitle, bookId, onConfirm, onCancel, on
               "{bookTitle}"
             </p>
             <p style={{ margin: 0, fontSize: 13.5, color: PALETTE.slateGrey, lineHeight: 1.6 }}>
-              Please return it within <strong>{BORROW_DAYS[cardType] ?? 30} days</strong>.
+              Please return it within <strong>{BORROW_DAYS[cardType] ?? 45} days</strong>.
             </p>
 
             <div style={{ display: "flex", justifyContent: "center", gap: 24,
               background: PALETTE.blushCream, borderRadius: 10,
               padding: "14px 20px", marginBottom: 28 }}>
               {[
-                { icon: "📅", label: "Borrow period", value: `${BORROW_DAYS[cardType] ?? 30} days` },
+                { icon: "📅", label: "Borrow period", value: `${BORROW_DAYS[cardType] ?? 45} days` },
                 { icon: "⭐", label: "Card type",     value: cardType },
                 { icon: "🔄", label: "Renewals",      value: `${BORROW_RENEWALS[cardType] ?? 1} allowed` },
               ].map(item => (

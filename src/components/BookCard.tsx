@@ -13,12 +13,12 @@ export default function BookCard({ book, onClick }: BookCardProps) {
 
   return (
     <div
-    onClick={onClick}
-     style={{
-      background: "#fff", borderRadius: 10, overflow: "hidden",
-      border: "1.5px solid #ede5e0", display: "flex", flexDirection: "column",
-      transition: "transform 0.18s, box-shadow 0.18s", cursor: "pointer",
-    }}
+      onClick={onClick}
+      style={{
+        background: "#fff", borderRadius: 10, overflow: "hidden",
+        border: "1.5px solid #ede5e0", display: "flex", flexDirection: "column",
+        transition: "transform 0.18s, box-shadow 0.18s", cursor: "pointer",
+      }}
       onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(64,78,92,0.13)"; }}
       onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
     >

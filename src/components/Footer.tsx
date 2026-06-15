@@ -9,7 +9,7 @@ export default function Footer() {
       fontSize: 13,
       color: "#9aacb5",
     }}>
-      © 2026 City Library System. All rights reserved.
+      © 2026 eNationalLibrary System. All rights reserved.
     </footer>
   );
 }
