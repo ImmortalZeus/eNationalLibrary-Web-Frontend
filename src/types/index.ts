@@ -48,6 +48,7 @@ export interface User {
   username: string;
   gender: UserGender;
   email: string;
+  dateOfBirth?: string | null;   // ISO date; used for age-based promotions
   phoneNumber: string | null;
   role: UserRole;
   status: UserStatus;
@@ -134,6 +135,12 @@ export interface ReadingCardPublicDto {
   activationDate: string;
   expiryDate: string | null;
   reader?: ReaderPublicDto;
+  // Pricing / promotion (populated by the backend when a card is created)
+  appliedPromotion?: PromotionPublicDto | null;
+  originalPrice?: number;
+  discountedPrice?: number;
+  effectiveMaxBorrowedBooks?: number;
+  effectiveMaxBorrowDurationDays?: number;
 }
 
 export interface ReaderPublicDto {
@@ -249,3 +256,41 @@ export interface UpdateBorrowRecordInput {
   dueDate?: string;
   actualReturnDate?: string | null;
 }
+
+// ─── Promotions (mirror backend promotion module) ─────────────────────────────
+export type DiscountType = "Percentage" | "FixedAmount";
+
+export interface PromotionPublicDto {
+  promotionId: string;
+  name: string;
+  description: string | null;
+  discountType: DiscountType;
+  discountValue: number;
+  maxBorrowedBooksOverride: number | null;
+  maxBorrowDurationOverride: number | null;
+  applicableCardTypes: ReadingCardType[];
+  applicableAgeMin: number;
+  applicableAgeMax: number;
+  startDate: string;            // ISO date
+  endDate: string;              // ISO date
+  isActive: boolean;
+  priority: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** POST /promotions body. isActive & priority are managed by the backend (not set here). */
+export interface CreatePromotionInput {
+  name: string;
+  description?: string;
+  discountType: DiscountType;
+  discountValue: number;                 // >= 0
+  maxBorrowedBooksOverride?: number;     // >= 1 if provided
+  maxBorrowDurationOverride?: number;    // >= 1 if provided
+  applicableCardTypes: ReadingCardType[];
+  applicableAgeMin: number;              // >= 0
+  applicableAgeMax: number;              // >= 0
+  startDate: string;                     // "YYYY-MM-DD"
+  endDate: string;                       // "YYYY-MM-DD"
+}
+export type UpdatePromotionInput = Partial<CreatePromotionInput>;

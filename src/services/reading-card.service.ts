@@ -24,7 +24,7 @@ export const readingCardService = {
 
   async findAll(): Promise<ReadingCardPublicDto[]> {
     const { data } = await api.get<ReadingCardPublicDto[]>("/reading-cards", {
-      params: { relations: "reader,reader.user" },
+      params: { relations: "reader,reader.user,appliedPromotion" },
     });
     return data;
   },

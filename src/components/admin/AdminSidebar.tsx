@@ -4,7 +4,7 @@ import { PALETTE } from "../../data/constants";
 
 export type AdminSection =
   | "dashboard" | "books" | "authors" | "publishers" | "genres"
-  | "readers" | "borrowRecords" | "readingCards" | "reviews" | "admins";
+  | "readers" | "borrowRecords" | "readingCards" | "promotions" | "reviews" | "admins";
 
 const SANS = "'DM Sans', sans-serif";
 const SERIF = "'Playfair Display', serif";
@@ -22,6 +22,7 @@ const ICONS: Record<AdminSection, ReactNode> = {
   readers:      ic(<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>),
   borrowRecords:ic(<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></>),
   readingCards: ic(<><rect x="1" y="4" width="22" height="16" rx="2" /><line x1="1" y1="10" x2="23" y2="10" /></>),
+  promotions:   ic(<><line x1="19" y1="5" x2="5" y2="19" /><circle cx="6.5" cy="6.5" r="2.5" /><circle cx="17.5" cy="17.5" r="2.5" /></>),
   reviews:      ic(<><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></>),
   admins:       ic(<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></>),
   // logout icon reused below
@@ -38,6 +39,7 @@ const NAV: { key: AdminSection; label: string }[] = [
   { key: "readers", label: "Readers" },
   { key: "borrowRecords", label: "Borrow Records" },
   { key: "readingCards", label: "Reading Cards" },
+  { key: "promotions", label: "Promotions" },
   { key: "reviews", label: "Reviews" },
   { key: "admins", label: "Admin Accounts" },
 ];

@@ -4,7 +4,8 @@ import { PALETTE } from "../../data/constants";
 import { useAuth } from "../../context/AuthContext";
 import { readerService } from "../../services/reader.service";
 import { readingCardService } from "../../services/reading-card.service";
-import type { ReadingCardPublicDto, ReaderPublicDto } from "../../types";
+import { promotionService } from "../../services/promotion.service";
+import type { ReadingCardPublicDto, ReaderPublicDto, PromotionPublicDto } from "../../types";
 
 interface ReadingCardPageProps {
   onLogout: () => void;
@@ -52,6 +53,39 @@ const PLANS: Record<"normal" | "vip", Plan> = {
 
 const DURATION_LABELS: Record<Duration, string> = { "1": "1 Month", "3": "3 Months", "12": "12 Months" };
 const DURATION_SAVINGS: Record<Duration, string | null> = { "1": null, "3": "Save 11%", "12": "Save 30%" };
+
+// ── Promotion matching (mirrors the backend findBestPromotion / applyPromotionToCard) ──
+function ageFrom(dob: string | null | undefined, at: Date): number | null {
+  if (!dob) return null;
+  const d = new Date(dob);
+  let age = at.getFullYear() - d.getFullYear();
+  const m = at.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && at.getDate() < d.getDate())) age--;
+  return age;
+}
+
+/** Best active percentage promotion for a card type, matched the way the backend would. */
+function bestPromo(
+  promos: PromotionPublicDto[],
+  cardType: "Normal" | "VIP",
+  dob: string | null | undefined,
+): PromotionPublicDto | null {
+  const now = new Date();
+  const age = ageFrom(dob, now);
+  const matching = promos.filter(p =>
+    p.discountType === "Percentage" &&                 // only % discounts map to these USD prices
+    p.applicableCardTypes.includes(cardType) &&
+    new Date(p.startDate) <= now && new Date(p.endDate) >= now &&
+    (age == null || (age >= p.applicableAgeMin && age <= p.applicableAgeMax))
+  );
+  // Highest discount wins (the backend also prefers the largest discount).
+  return matching.sort((a, b) => b.discountValue - a.discountValue)[0] ?? null;
+}
+
+function discountedPrice(base: number, promo: PromotionPublicDto | null): number {
+  if (!promo) return base;
+  return Math.round(base * (1 - promo.discountValue / 100) * 100) / 100;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 function toISO(d: Date) { return d.toISOString().split("T")[0]; }
@@ -108,11 +142,13 @@ function DetailItem({ icon, label, value, sub, subColor }: {
 }
 
 // ── Plan card ─────────────────────────────────────────────────────────────
-function PlanCard({ type, plan, duration, selected, onSelect }: {
+function PlanCard({ type, plan, duration, selected, onSelect, promo }: {
   type: "normal" | "vip"; plan: Plan;
   duration: Duration; selected: boolean; onSelect: () => void;
+  promo: PromotionPublicDto | null;
 }) {
-  const { price, original } = plan.prices[duration];
+  const base = plan.prices[duration].price;
+  const price = discountedPrice(base, promo);
   const isVip = type === "vip";
   return (
     <div style={{
@@ -152,10 +188,12 @@ function PlanCard({ type, plan, duration, selected, onSelect }: {
           <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, fontWeight: 700, color: plan.color }}>${price}</span>
           <span style={{ fontSize: 13, color: PALETTE.slateGrey }}>/ {DURATION_LABELS[duration].toLowerCase()}</span>
         </div>
-        {original && (
+        {promo && (
           <p style={{ margin: "4px 0 0", fontSize: 12.5, color: PALETTE.slateGrey }}>
-            <span style={{ textDecoration: "line-through" }}>${original}</span>
-            <span style={{ color: "#e05a5a", fontWeight: 600, marginLeft: 6 }}>Sale!</span>
+            <span style={{ textDecoration: "line-through" }}>${base}</span>
+            <span style={{ color: "#e05a5a", fontWeight: 600, marginLeft: 6 }}>
+              {promo.name} −{promo.discountValue}%
+            </span>
           </p>
         )}
       </div>
@@ -185,7 +223,7 @@ function PlanCard({ type, plan, duration, selected, onSelect }: {
 }
 
 // ── Confirm Modal ─────────────────────────────────────────────────────────
-function ConfirmModal({ plan, duration, newExpiry, actionLabel, onConfirm, onCancel, subscribing }: {
+function ConfirmModal({ plan, duration, newExpiry, actionLabel, onConfirm, onCancel, subscribing, price, promo }: {
   plan: Plan;
   duration: Duration;
   newExpiry: string;
@@ -193,6 +231,8 @@ function ConfirmModal({ plan, duration, newExpiry, actionLabel, onConfirm, onCan
   onConfirm: () => void;
   onCancel: () => void;
   subscribing: boolean;
+  price: number;
+  promo: PromotionPublicDto | null;
 }) {
   return (
     <div onClick={onCancel} style={{
@@ -233,7 +273,7 @@ function ConfirmModal({ plan, duration, newExpiry, actionLabel, onConfirm, onCan
           {[
             { label: "Plan",       value: plan.label },
             { label: "Duration",   value: DURATION_LABELS[duration] },
-            { label: "Price",      value: `$${plan.prices[duration].price}` },
+            { label: "Price",      value: promo ? `$${price}  (${promo.name} −${promo.discountValue}%)` : `$${price}` },
             { label: "Valid Until", value: new Date(newExpiry).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) },
           ].map(row => (
             <div key={row.label} style={{ display: "flex", justifyContent: "space-between",
@@ -283,6 +323,12 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
   const [showConfirm, setShowConfirm] = useState(false);
   const [duration, setDuration]       = useState<Duration>("1");
   const [selectedPlan, setSelectedPlan] = useState<"normal" | "vip">("normal");
+  const [promos, setPromos]           = useState<PromotionPublicDto[]>([]);
+
+  useEffect(() => {
+    // Active promotions are public (GET /promotions/active).
+    promotionService.findActive().then(setPromos).catch(() => setPromos([]));
+  }, []);
 
   useEffect(() => {
     if (!user?.sub) return;
@@ -407,6 +453,13 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
 };
   const handleLogout = () => { logout(); onLogout(); };
 
+  // Best active promotion per card type, and the resulting price for the selection.
+  const dob = reader?.user?.dateOfBirth ?? null;
+  const normalPromo = bestPromo(promos, "Normal", dob);
+  const vipPromo    = bestPromo(promos, "VIP", dob);
+  const selectedPromo = selectedPlan === "vip" ? vipPromo : normalPromo;
+  const selectedFinalPrice = discountedPrice(PLANS[selectedPlan].prices[duration].price, selectedPromo);
+
   return (
     <div style={{ minHeight: "100vh", background: PALETTE.blushCream, fontFamily: "'DM Sans', sans-serif" }}>
 
@@ -420,6 +473,8 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
           onConfirm={handleSubscribe}
           onCancel={() => setShowConfirm(false)}
           subscribing={subscribing}
+          price={selectedFinalPrice}
+          promo={selectedPromo}
         />
       )}
 
@@ -644,6 +699,7 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
                 {(["normal", "vip"] as const).map(type => (
                   <PlanCard key={type} type={type} plan={PLANS[type]} duration={duration}
                     selected={selectedPlan === type}
+                    promo={type === "vip" ? vipPromo : normalPromo}
                     onSelect={() => { setSelectedPlan(type); setError(null); }} />
                 ))}
               </div>
@@ -713,7 +769,7 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
                       onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
                       onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
                     >
-                      Subscribe to {PLANS[selectedPlan].label} — ${PLANS[selectedPlan].prices[duration].price} / {DURATION_LABELS[duration].toLowerCase()}
+                      Subscribe to {PLANS[selectedPlan].label} — ${selectedFinalPrice} / {DURATION_LABELS[duration].toLowerCase()}
                   </button>
                     <p style={{ margin: "10px 0 0", fontSize: 12, color: PALETTE.slateGrey }}>
                       Cancel anytime. No hidden fees.

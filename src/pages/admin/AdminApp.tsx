@@ -15,6 +15,7 @@ import ManageGenresPage from "./ManageGenresPage";
 import ManageReadersPage from "./ManageReadersPage";
 import ManageBorrowRecordsPage from "./ManageBorrowRecordsPage";
 import ManageReadingCardsPage from "./ManageReadingCardsPage";
+import ManagePromotionsPage from "./ManagePromotionsPage";
 import ManageReviewsPage from "./ManageReviewsPage";
 import ManageAdminsPage from "./ManageAdminsPage";
 
@@ -34,6 +35,7 @@ export default function AdminApp({ onLogout }: { onLogout: () => void }) {
       case "readers":       return <ManageReadersPage />;
       case "borrowRecords": return <ManageBorrowRecordsPage />;
       case "readingCards":  return <ManageReadingCardsPage />;
+      case "promotions":    return <ManagePromotionsPage />;
       case "reviews":       return <ManageReviewsPage />;
       case "admins":        return <ManageAdminsPage />;
       default:              return <AdminDashboard onNavigate={setSection} />;
