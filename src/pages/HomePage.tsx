@@ -14,46 +14,107 @@ interface HomePageProps {
   onViewBook?: (book: BookPublicDto) => void;
 }
 
-export default function HomePage({ onLoginClick, onRegisterClick, onViewBook }: HomePageProps) {
-  const [query, setQuery]     = useState("");
-  const [books, setBooks]     = useState<BookPublicDto[]>([]);
+export default function HomePage({
+  onLoginClick,
+  onRegisterClick,
+  onViewBook,
+}: HomePageProps) {
+  const [query, setQuery] = useState("");
+  const [books, setBooks] = useState<BookPublicDto[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [category, setCategory] = useState("All");
+  const [categories, setCategories] = useState<string[]>(["All"]);
+
   useEffect(() => {
-    // /books is auth-guarded; guests get 401 and simply see an empty section.
-    bookService.findAll()
-      .then(data => setBooks(data))
-      .catch(() => setBooks([]))
+    bookService
+      .findAll()
+      .then((data) => {
+        setBooks(data);
+
+        // Build genre list
+        const genres = Array.from(
+          new Set(
+            data.flatMap(
+              (book) => book.genres?.map((g) => g.label) ?? []
+            )
+          )
+        );
+
+        setCategories(["All", ...genres]);
+      })
+      .catch(() => {
+        setBooks([]);
+        setCategories(["All"]);
+      })
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = books.filter(b => {
-    const author = b.authors?.map(a => a.name).join(" ") ?? "";
-    return (
-      b.title.toLowerCase().includes(query.toLowerCase()) ||
-      author.toLowerCase().includes(query.toLowerCase())
-    );
+  const filtered = books.filter((book) => {
+    const author =
+      book.authors?.map((a) => a.name).join(" ") ?? "";
+
+    const genre =
+      book.genres?.[0]?.label ?? "";
+
+    const matchQuery =
+      query.trim() === "" ||
+      book.title.toLowerCase().includes(query.toLowerCase()) ||
+      author.toLowerCase().includes(query.toLowerCase());
+
+    const matchCategory =
+      category === "All" || genre === category;
+
+    return matchQuery && matchCategory;
   });
 
-  const displayed = query ? filtered : books;
-
-  const emptyMessage = loading
-    ? "Loading…"
-    : query
-      ? "No books match your search."
-      : "Sign in to explore our collection.";
+  const displayed = filtered;
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <Navbar onLoginClick={onLoginClick} onRegisterClick={onRegisterClick} />
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <Navbar
+        onLoginClick={onLoginClick}
+        onRegisterClick={onRegisterClick}
+      />
+
       <main style={{ flex: 1 }}>
-        <HeroSection query={query} setQuery={setQuery} />
+        <HeroSection
+          query={query}
+          setQuery={setQuery}
+          category={category}
+          setCategory={setCategory}
+          categories={categories}
+        />
+
         <FeaturesSection />
-        {loading
-          ? <div style={{ padding: "40px", textAlign: "center", color: "#545F66" }}>Loading books…</div>
-          : <FeaturedBooksSection books={displayed} isSearching={!!query} onViewBook={onViewBook} />
-        }
+
+        {loading ? (
+          <div
+            style={{
+              padding: "40px",
+              textAlign: "center",
+              color: "#545F66",
+            }}
+          >
+            Loading books…
+          </div>
+        ) : (
+          <FeaturedBooksSection
+            books={displayed}
+            isSearching={
+              !!query || category !== "All"
+            }
+            onViewBook={onViewBook}
+          />
+        )}
       </main>
+
       <Footer />
     </div>
   );
