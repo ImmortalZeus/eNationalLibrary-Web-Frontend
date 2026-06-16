@@ -13,19 +13,8 @@ interface BorrowModalProps {
   onCancel: () => void;
   onNavigateToCard?: () => void;
 }
-const BORROW_LIMITS: Record<string, number> = {
-  Normal: 5,
-  VIP:    8,
-};
 
-const BORROW_DAYS: Record<string, number> = {
-  Normal: 45,
-  VIP:    60,
-};
-const BORROW_RENEWALS: Record<string, number> = {
-  Normal: 1,
-  VIP:    2,
-};
+const DEFAULT_RENEWALS: Record<string, number> = { Normal: 1, VIP: 2 };
 
 function isExpired(expiryDate: string | null | undefined): boolean {
   if (!expiryDate) return true;
@@ -42,13 +31,17 @@ function getActiveCard(cards: ReadingCardPublicDto[]): ReadingCardPublicDto | nu
 
 export default function BorrowModal({ bookTitle, bookId, onConfirm, onCancel, onNavigateToCard }: BorrowModalProps) {
   const { user } = useAuth();
-  const [reader, setReader]     = useState<ReaderPublicDto | null>(null);
-  const [checking, setChecking] = useState(true);
-  const [borrowed, setBorrowed] = useState(false);
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState<string | null>(null);
-  const [noCard, setNoCard]     = useState(false);
-  const [cardType, setCardType] = useState<string>("Normal");
+  const [reader, setReader]           = useState<ReaderPublicDto | null>(null);
+  const [checking, setChecking]       = useState(true);
+  const [borrowed, setBorrowed]       = useState(false);
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState<string | null>(null);
+  const [noCard, setNoCard]           = useState(false);
+  const [cardType, setCardType]       = useState<string>("Normal");
+  const [borrowDays, setBorrowDays]   = useState(45);
+  const [borrowLimit, setBorrowLimit] = useState(5);
+  const [borrowRenewals, setBorrowRenewals] = useState(1);
+
   useEffect(() => {
     if (!user?.sub) return;
     readerService.findByUserId(user.sub).then(r => {
@@ -60,17 +53,26 @@ export default function BorrowModal({ bookTitle, bookId, onConfirm, onCancel, on
       }
 
       const cards = r.readingCards ?? [];
-      const activeCard =getActiveCard(cards);
+      const activeCard = getActiveCard(cards);
 
       if (!activeCard) {
         setNoCard(true);
         setError("You don't have an active reading card. Please subscribe to a plan in the Reading Card page before borrowing.");
         return;
       }
-      setCardType(activeCard.type);
-      const limit = BORROW_LIMITS[activeCard.type] ?? 5;
-      const activeBorrows = (r.borrowRecords ?? []).filter(br => !br.actualReturnDate).length;
 
+      setCardType(activeCard.type);
+
+      // Use backend-computed effective values (already account for promotion overrides)
+      const limit    = activeCard.effectiveMaxBorrowedBooks      ?? (activeCard.type === "VIP" ? 8 : 5);
+      const days     = activeCard.effectiveMaxBorrowDurationDays ?? (activeCard.type === "VIP" ? 60 : 45);
+      const renewals = DEFAULT_RENEWALS[activeCard.type] ?? 1;
+
+      setBorrowLimit(limit);
+      setBorrowDays(days);
+      setBorrowRenewals(renewals);
+
+      const activeBorrows = (r.borrowRecords ?? []).filter(br => !br.actualReturnDate).length;
       if (activeBorrows >= limit) {
         setError(`You've reached your borrow limit of ${limit} books for your ${activeCard.type} card. Please return a book before borrowing another.`);
         return;
@@ -81,34 +83,34 @@ export default function BorrowModal({ bookTitle, bookId, onConfirm, onCancel, on
   }, [user?.sub]);
 
   const handleConfirm = async () => {
-  if (!reader) return;
-  setLoading(true);
-  setError(null);
-  try {
-    const today = new Date();
-    const due   = new Date();
-    due.setDate(today.getDate() + (BORROW_DAYS[cardType] ?? 30));  // use card days
-    const toISO = (d: Date) => d.toISOString().split("T")[0];
+    if (!reader) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const today = new Date();
+      const due   = new Date();
+      due.setDate(today.getDate() + borrowDays);
+      const toISO = (d: Date) => d.toISOString().split("T")[0];
 
-    await borrowRecordService.create({
-      quantity:         1,
-      borrowDate:       toISO(today),
-      dueDate:          toISO(due),
-      actualReturnDate: null,
-      readerId:         reader.userId,
-      bookId:           bookId,
-    });
+      await borrowRecordService.create({
+        quantity:         1,
+        borrowDate:       toISO(today),
+        dueDate:          toISO(due),
+        actualReturnDate: null,
+        readerId:         reader.userId,
+        bookId:           bookId,
+      });
 
-    setBorrowed(true);
-    setTimeout(() => onConfirm(), 1800);
-  } catch (err: unknown) {
-    const msg = (err as { response?: { data?: { message?: string } } })
-      ?.response?.data?.message ?? "Borrow failed.";
-    setError(typeof msg === "string" ? msg : "Borrow failed.");
-  } finally {
-    setLoading(false);
-  }
-};
+      setBorrowed(true);
+      setTimeout(() => onConfirm(), 1800);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message ?? "Borrow failed.";
+      setError(typeof msg === "string" ? msg : "Borrow failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div onClick={onCancel} style={{
@@ -185,13 +187,9 @@ export default function BorrowModal({ bookTitle, bookId, onConfirm, onCancel, on
                 onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
               >Close</button>
 
-              {/* Show "Get a Card" only when no active card */}
               {noCard && (
                 <button
-                  onClick={() => {
-                    onCancel();
-                    onNavigateToCard?.();
-                  }}
+                  onClick={() => { onCancel(); onNavigateToCard?.(); }}
                   style={{
                     flex: 1, padding: "12px 0", border: "none",
                     borderRadius: 8, background: PALETTE.burntOrange,
@@ -224,7 +222,7 @@ export default function BorrowModal({ bookTitle, bookId, onConfirm, onCancel, on
               Successfully Borrowed!
             </h2>
             <p style={{ margin: 0, fontSize: 13.5, color: PALETTE.slateGrey, lineHeight: 1.6 }}>
-              Please return it within <strong>{BORROW_DAYS[cardType] ?? 45} days</strong>.
+              Please return it within <strong>{borrowDays} days</strong>.
             </p>
           </>
 
@@ -248,17 +246,18 @@ export default function BorrowModal({ bookTitle, bookId, onConfirm, onCancel, on
             <p style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 600, color: PALETTE.darkNavy }}>
               "{bookTitle}"
             </p>
-            <p style={{ margin: 0, fontSize: 13.5, color: PALETTE.slateGrey, lineHeight: 1.6 }}>
-              Please return it within <strong>{BORROW_DAYS[cardType] ?? 45} days</strong>.
+            <p style={{ margin: "0 0 20px", fontSize: 13.5, color: PALETTE.slateGrey, lineHeight: 1.6 }}>
+              Please return it within <strong>{borrowDays} days</strong>.
             </p>
 
             <div style={{ display: "flex", justifyContent: "center", gap: 24,
               background: PALETTE.blushCream, borderRadius: 10,
               padding: "14px 20px", marginBottom: 28 }}>
               {[
-                { icon: "📅", label: "Borrow period", value: `${BORROW_DAYS[cardType] ?? 45} days` },
-                { icon: "⭐", label: "Card type",     value: cardType },
-                { icon: "🔄", label: "Renewals",      value: `${BORROW_RENEWALS[cardType] ?? 1} allowed` },
+                { icon: "📅", label: "Borrow period", value: `${borrowDays} days`          },
+                { icon: "⭐", label: "Card type",     value: cardType                       },
+                { icon: "🔄", label: "Renewals",      value: `${borrowRenewals} allowed`    },
+                { icon: "📚", label: "Borrow limit",  value: `${borrowLimit} books`         },
               ].map(item => (
                 <div key={item.label} style={{ textAlign: "center" }}>
                   <p style={{ margin: 0, fontSize: 18 }}>{item.icon}</p>

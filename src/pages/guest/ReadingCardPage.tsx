@@ -29,7 +29,6 @@ interface Plan {
   bg: string;
   border: string;
   badge: string | null;
-  features: string[];
   prices: Record<Duration, { price: number; original: number | null }>;
   months: Record<Duration, number>;
 }
@@ -38,23 +37,21 @@ const PLANS: Record<"normal" | "vip", Plan> = {
   normal: {
     label: "Normal", color: PALETTE.burntOrange, bg: "#fff8f5",
     border: PALETTE.burntOrange, badge: null,
-    features: ["Access to general collection", "Borrow up to 5 books", "45 days return period", "1 renewal per book", "Standard support"],
-    prices: { "1": { price: 2.99, original: 6.99 }, "3": { price: 7.99, original: null }, "12": { price: 24.99, original: null } },
+    prices: { "1": { price: 2.99, original: null }, "3": { price: 8.97, original: null }, "12": { price: 35.88, original: null } },
     months: { "1": 1, "3": 3, "12": 12 },
   },
   vip: {
     label: "VIP", color: "#b8860b", bg: "#fffbf0",
     border: "#d4a017", badge: "Most Popular",
-    features: ["Access to rare & premium books", "Borrow up to 8 books", "60 days return period", "2 renewals per book", "Priority support", "Early access to new arrivals"],
-    prices: { "1": { price: 4.99, original: 9.99 }, "3": { price: 13.99, original: null }, "12": { price: 49.99, original: null } },
+    prices: { "1": { price: 4.99, original: null }, "3": { price: 14.97, original: null }, "12": { price: 59.88, original: null } },
     months: { "1": 1, "3": 3, "12": 12 },
   },
 };
 
 const DURATION_LABELS: Record<Duration, string> = { "1": "1 Month", "3": "3 Months", "12": "12 Months" };
-const DURATION_SAVINGS: Record<Duration, string | null> = { "1": null, "3": "Save 11%", "12": "Save 30%" };
+const DURATION_SAVINGS: Record<Duration, string | null> = { "1": null, "3": null, "12": null };
 
-// ── Promotion matching (mirrors the backend findBestPromotion / applyPromotionToCard) ──
+// ── Promotion helpers ─────────────────────────────────────────────────────
 function ageFrom(dob: string | null | undefined, at: Date): number | null {
   if (!dob) return null;
   const d = new Date(dob);
@@ -64,7 +61,14 @@ function ageFrom(dob: string | null | undefined, at: Date): number | null {
   return age;
 }
 
-/** Best active percentage promotion for a card type, matched the way the backend would. */
+const BASE_PRICE: Record<"Normal" | "VIP", number> = { Normal: 2.99, VIP: 4.99 };
+
+function effectiveDiscount(promo: PromotionPublicDto, cardType: "Normal" | "VIP"): number {
+  if (promo.discountType === "Percentage") return BASE_PRICE[cardType] * promo.discountValue / 100;
+  return promo.discountValue;
+}
+
+/** Best active promotion for a card type, matched the way the backend would. */
 function bestPromo(
   promos: PromotionPublicDto[],
   cardType: "Normal" | "VIP",
@@ -73,19 +77,24 @@ function bestPromo(
   const now = new Date();
   const age = ageFrom(dob, now);
   const matching = promos.filter(p =>
-    p.discountType === "Percentage" &&                 // only % discounts map to these USD prices
     p.applicableCardTypes.includes(cardType) &&
     new Date(p.startDate) <= now && new Date(p.endDate) >= now &&
     (age == null || (age >= p.applicableAgeMin && age <= p.applicableAgeMax))
   );
-  // Highest discount wins (the backend also prefers the largest discount).
-  return matching.sort((a, b) => b.discountValue - a.discountValue)[0] ?? null;
+  return matching.sort((a, b) => effectiveDiscount(b, cardType) - effectiveDiscount(a, cardType))[0] ?? null;
 }
 
 function discountedPrice(base: number, promo: PromotionPublicDto | null): number {
   if (!promo) return base;
-  return Math.round(base * (1 - promo.discountValue / 100) * 100) / 100;
+  if (promo.discountType === "Percentage")
+    return Math.round(base * (1 - promo.discountValue / 100) * 100) / 100;
+  return Math.max(0, Math.round((base - promo.discountValue) * 100) / 100);
 }
+
+const fmtPromoLabel = (promo: PromotionPublicDto) =>
+  promo.discountType === "Percentage"
+    ? `−${promo.discountValue}%`
+    : `−$${promo.discountValue}`;
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 function toISO(d: Date) { return d.toISOString().split("T")[0]; }
@@ -106,16 +115,13 @@ function isExpired(expiryDate: string | null | undefined): boolean {
   return new Date(expiryDate) < new Date();
 }
 
-// Get the card that should currently be active (VIP takes priority)
 function getActiveCard(cards: ReadingCardPublicDto[]): ReadingCardPublicDto | null {
   const active = cards.filter(c => !isExpired(c.expiryDate));
-  // VIP takes priority
   const vip = active.find(c => c.type === "VIP");
   if (vip) return vip;
   return active.find(c => c.type === "Normal") ?? null;
 }
 
-// Get next card (Normal that will activate after VIP expires)
 function getNextCard(cards: ReadingCardPublicDto[], activeCard: ReadingCardPublicDto | null): ReadingCardPublicDto | null {
   if (!activeCard || activeCard.type !== "VIP") return null;
   return cards.find(c => c.type === "Normal" && !isExpired(c.expiryDate) && c.readingCardId !== activeCard.readingCardId) ?? null;
@@ -147,9 +153,22 @@ function PlanCard({ type, plan, duration, selected, onSelect, promo }: {
   duration: Duration; selected: boolean; onSelect: () => void;
   promo: PromotionPublicDto | null;
 }) {
-  const base = plan.prices[duration].price;
+  const base  = plan.prices[duration].price;
   const price = discountedPrice(base, promo);
   const isVip = type === "vip";
+
+  // Dynamic features — reflect promotion overrides when present
+  const maxBooks = promo?.maxBorrowedBooksOverride  ?? (isVip ? 8 : 5);
+  const maxDays  = promo?.maxBorrowDurationOverride ?? (isVip ? 60 : 45);
+  const features = [
+    isVip ? "Access to rare & premium books" : "Access to general collection",
+    `Borrow up to ${maxBooks} books`,
+    `${maxDays} days return period`,
+    isVip ? "2 renewals per book" : "1 renewal per book",
+    isVip ? "Priority support" : "Standard support",
+    ...(isVip ? ["Early access to new arrivals"] : []),
+  ];
+
   return (
     <div style={{
       border: `2px solid ${selected ? plan.border : "#ede5e0"}`, borderRadius: 16,
@@ -192,13 +211,13 @@ function PlanCard({ type, plan, duration, selected, onSelect, promo }: {
           <p style={{ margin: "4px 0 0", fontSize: 12.5, color: PALETTE.slateGrey }}>
             <span style={{ textDecoration: "line-through" }}>${base}</span>
             <span style={{ color: "#e05a5a", fontWeight: 600, marginLeft: 6 }}>
-              {promo.name} −{promo.discountValue}%
+              {promo.name} {fmtPromoLabel(promo)}
             </span>
           </p>
         )}
       </div>
       <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 10 }}>
-        {plan.features.map(f => (
+        {features.map(f => (
           <li key={f} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13.5, color: PALETTE.darkNavy }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={PALETTE.mintTeal}
               strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -224,15 +243,9 @@ function PlanCard({ type, plan, duration, selected, onSelect, promo }: {
 
 // ── Confirm Modal ─────────────────────────────────────────────────────────
 function ConfirmModal({ plan, duration, newExpiry, actionLabel, onConfirm, onCancel, subscribing, price, promo }: {
-  plan: Plan;
-  duration: Duration;
-  newExpiry: string;
-  actionLabel: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-  subscribing: boolean;
-  price: number;
-  promo: PromotionPublicDto | null;
+  plan: Plan; duration: Duration; newExpiry: string; actionLabel: string;
+  onConfirm: () => void; onCancel: () => void; subscribing: boolean;
+  price: number; promo: PromotionPublicDto | null;
 }) {
   return (
     <div onClick={onCancel} style={{
@@ -247,7 +260,6 @@ function ConfirmModal({ plan, duration, newExpiry, actionLabel, onConfirm, onCan
         boxShadow: "0 16px 48px rgba(64,78,92,0.18)",
         textAlign: "center", fontFamily: "'DM Sans', sans-serif",
       }}>
-        {/* Icon */}
         <div style={{ width: 64, height: 64, borderRadius: "50%",
           background: plan.color + "22",
           display: "flex", alignItems: "center", justifyContent: "center",
@@ -267,18 +279,16 @@ function ConfirmModal({ plan, duration, newExpiry, actionLabel, onConfirm, onCan
           {actionLabel}
         </p>
 
-        {/* Summary */}
         <div style={{ background: PALETTE.blushCream, borderRadius: 12,
           padding: "16px 20px", marginBottom: 24, textAlign: "left" }}>
           {[
-            { label: "Plan",       value: plan.label },
-            { label: "Duration",   value: DURATION_LABELS[duration] },
-            { label: "Price",      value: promo ? `$${price}  (${promo.name} −${promo.discountValue}%)` : `$${price}` },
+            { label: "Plan",        value: plan.label },
+            { label: "Duration",    value: DURATION_LABELS[duration] },
+            { label: "Price",       value: promo ? `$${price}  (${promo.name} ${fmtPromoLabel(promo)})` : `$${price}` },
             { label: "Valid Until", value: new Date(newExpiry).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) },
           ].map(row => (
             <div key={row.label} style={{ display: "flex", justifyContent: "space-between",
-              alignItems: "center", padding: "6px 0",
-              borderBottom: "1px solid #f0e8e4" }}>
+              alignItems: "center", padding: "6px 0", borderBottom: "1px solid #f0e8e4" }}>
               <span style={{ fontSize: 13, color: PALETTE.slateGrey }}>{row.label}</span>
               <span style={{ fontSize: 13.5, fontWeight: 600, color: PALETTE.darkNavy }}>{row.value}</span>
             </div>
@@ -315,18 +325,17 @@ function ConfirmModal({ plan, duration, newExpiry, actionLabel, onConfirm, onCan
 // ── Page ──────────────────────────────────────────────────────────────────
 export default function ReadingCardPage({ onLogout, onNavigate, activePage = "readingCard" }: ReadingCardPageProps) {
   const { user, logout, readerId } = useAuth();
-  const [reader, setReader]           = useState<ReaderPublicDto | null>(null);
-  const [loading, setLoading]         = useState(true);
-  const [subscribing, setSubscribing] = useState(false);
-  const [successMsg, setSuccessMsg]   = useState<string | null>(null);
-  const [error, setError]             = useState<string | null>(null);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [duration, setDuration]       = useState<Duration>("1");
+  const [reader, setReader]             = useState<ReaderPublicDto | null>(null);
+  const [loading, setLoading]           = useState(true);
+  const [subscribing, setSubscribing]   = useState(false);
+  const [successMsg, setSuccessMsg]     = useState<string | null>(null);
+  const [error, setError]               = useState<string | null>(null);
+  const [showConfirm, setShowConfirm]   = useState(false);
+  const [duration, setDuration]         = useState<Duration>("1");
   const [selectedPlan, setSelectedPlan] = useState<"normal" | "vip">("normal");
-  const [promos, setPromos]           = useState<PromotionPublicDto[]>([]);
+  const [promos, setPromos]             = useState<PromotionPublicDto[]>([]);
 
   useEffect(() => {
-    // Active promotions are public (GET /promotions/active).
     promotionService.findActive().then(setPromos).catch(() => setPromos([]));
   }, []);
 
@@ -349,31 +358,25 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
     fetch();
   }, [user?.sub, readerId]);
 
-  const allCards  = reader?.readingCards ?? [];
+  const allCards   = reader?.readingCards ?? [];
   const activeCard = getActiveCard(allCards);
   const nextCard   = getNextCard(allCards, activeCard);
   const days       = activeCard?.expiryDate ? daysRemaining(activeCard.expiryDate) : 0;
   const username   = reader?.user?.username ?? user?.username ?? "Reader";
 
-  // Calculate what the new expiry will be
   const computeNewExpiry = (): string => {
-    const plan     = PLANS[selectedPlan];
-    const months   = plan.months[duration];
-    const typeKey  = selectedPlan === "vip" ? "VIP" : "Normal";
-
+    const plan    = PLANS[selectedPlan];
+    const months  = plan.months[duration];
+    const typeKey = selectedPlan === "vip" ? "VIP" : "Normal";
     if (activeCard && activeCard.type === typeKey && !isExpired(activeCard.expiryDate)) {
-      // Same type — extend from current expiry
       return toISO(addMonths(new Date(activeCard.expiryDate!), months));
     }
-    // New type or no card — start from today
     return toISO(addMonths(new Date(), months));
   };
 
-  // Build the action label for the confirm modal
   const buildActionLabel = (): string => {
     const plan    = PLANS[selectedPlan];
     const typeKey = selectedPlan === "vip" ? "VIP" : "Normal";
-
     if (activeCard && activeCard.type === typeKey && !isExpired(activeCard.expiryDate)) {
       return `Your ${plan.label} card will be extended by ${DURATION_LABELS[duration]}.`;
     }
@@ -395,20 +398,15 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
       const months  = plan.months[duration];
       const typeKey = selectedPlan === "vip" ? "VIP" : "Normal";
 
-      // Find existing active card of same type
-      const sameTypeCard = allCards.find(
-        c => c.type === typeKey && !isExpired(c.expiryDate)
-      );
+      const sameTypeCard = allCards.find(c => c.type === typeKey && !isExpired(c.expiryDate));
 
       if (sameTypeCard && sameTypeCard.expiryDate) {
-        // Same type — extend expiry
         const newExpiry = toISO(addMonths(new Date(sameTypeCard.expiryDate), months));
         await readingCardService.update(sameTypeCard.readingCardId, {
           expiryDate: newExpiry,
           label: `${plan.label} — Extended`,
         });
       } else {
-        // Different type or no card — create new
         const today  = new Date();
         const expiry = addMonths(today, months);
         await readingCardService.create({
@@ -420,7 +418,6 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
         });
       }
 
-      // Refresh reader data
       let updated: ReaderPublicDto | null = null;
       if (readerId && readerId !== "null") {
         updated = await readerService.findById(readerId);
@@ -439,42 +436,34 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
       setSubscribing(false);
     }
   };
+
   const handleSubscribeClick = () => {
-  const typeKey = selectedPlan === "vip" ? "VIP" : "Normal";
+    const typeKey = selectedPlan === "vip" ? "VIP" : "Normal";
+    if (typeKey === "Normal" && activeCard?.type === "VIP" && !isExpired(activeCard.expiryDate)) {
+      setError(`You cannot buy a Normal card while your VIP card is active. Your Normal card will be available after your VIP card expires on ${new Date(activeCard.expiryDate!).toLocaleDateString()}.`);
+      return;
+    }
+    setError(null);
+    setShowConfirm(true);
+  };
 
-  // Block buying Normal when VIP is active
-  if (typeKey === "Normal" && activeCard?.type === "VIP" && !isExpired(activeCard.expiryDate)) {
-    setError(`You cannot buy a Normal card while your VIP card is active. Your Normal card will be available after your VIP card expires on ${new Date(activeCard.expiryDate!).toLocaleDateString()}.`);
-    return;
-  }
-
-  setError(null);
-  setShowConfirm(true);
-};
   const handleLogout = () => { logout(); onLogout(); };
 
-  // Best active promotion per card type, and the resulting price for the selection.
-  const dob = reader?.user?.dateOfBirth ?? null;
-  const normalPromo = bestPromo(promos, "Normal", dob);
-  const vipPromo    = bestPromo(promos, "VIP", dob);
+  const dob           = reader?.user?.dateOfBirth ?? null;
+  const normalPromo   = bestPromo(promos, "Normal", dob);
+  const vipPromo      = bestPromo(promos, "VIP", dob);
   const selectedPromo = selectedPlan === "vip" ? vipPromo : normalPromo;
   const selectedFinalPrice = discountedPrice(PLANS[selectedPlan].prices[duration].price, selectedPromo);
 
   return (
     <div style={{ minHeight: "100vh", background: PALETTE.blushCream, fontFamily: "'DM Sans', sans-serif" }}>
 
-      {/* Confirm Modal */}
       {showConfirm && (
         <ConfirmModal
-          plan={PLANS[selectedPlan]}
-          duration={duration}
-          newExpiry={computeNewExpiry()}
-          actionLabel={buildActionLabel()}
-          onConfirm={handleSubscribe}
-          onCancel={() => setShowConfirm(false)}
-          subscribing={subscribing}
-          price={selectedFinalPrice}
-          promo={selectedPromo}
+          plan={PLANS[selectedPlan]} duration={duration}
+          newExpiry={computeNewExpiry()} actionLabel={buildActionLabel()}
+          onConfirm={handleSubscribe} onCancel={() => setShowConfirm(false)}
+          subscribing={subscribing} price={selectedFinalPrice} promo={selectedPromo}
         />
       )}
 
@@ -589,7 +578,7 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
                   </div>
                 </div>
 
-                {/* Card details */}
+                {/* Card details — show effective limits from backend */}
                 <div style={{ background: "#fff", border: "1.5px solid #ede5e0",
                   borderRadius: 16, padding: "24px 28px", marginBottom: 20 }}>
                   <h2 style={{ margin: "0 0 20px", fontFamily: "'Playfair Display', serif",
@@ -607,10 +596,24 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
                       sub={`${days} days remaining`}
                       subColor={days < 30 ? "#e05a5a" : PALETTE.mintTeal}
                     />
+                    <DetailItem
+                      icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={PALETTE.burntOrange} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>}
+                      label="Borrow Limit"
+                      value={`${activeCard.effectiveMaxBorrowedBooks ?? (activeCard.type === "VIP" ? 8 : 5)} books`}
+                      sub={activeCard.appliedPromotion ? `Promoted from default` : undefined}
+                      subColor={PALETTE.mintTeal}
+                    />
+                    <DetailItem
+                      icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={PALETTE.mintTeal} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
+                      label="Return Period"
+                      value={`${activeCard.effectiveMaxBorrowDurationDays ?? (activeCard.type === "VIP" ? 60 : 45)} days`}
+                      sub={activeCard.appliedPromotion ? `Via: ${activeCard.appliedPromotion.name}` : undefined}
+                      subColor={PALETTE.mintTeal}
+                    />
                   </div>
                 </div>
 
-                {/* Next card (Normal waiting after VIP) */}
+                {/* Next card */}
                 {nextCard && (
                   <div style={{ background: "#fff", border: "1.5px dashed #e0d5d0",
                     borderRadius: 16, padding: "20px 28px", marginBottom: 20,
@@ -636,7 +639,6 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
                 )}
               </>
             ) : (
-              /* No card state */
               <div style={{ background: "#fff", border: "1.5px dashed #e0d5d0",
                 borderRadius: 16, padding: "40px 28px", marginBottom: 20, textAlign: "center" }}>
                 <div style={{ width: 64, height: 64, borderRadius: "50%", background: PALETTE.blushCream,
@@ -718,12 +720,12 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
                   </thead>
                   <tbody>
                     {[
-                      { feature: "Book Collection",  normal: "General",    vip: "General + Rare" },
-                      { feature: "Borrow Limit",      normal: "5 books",    vip: "8 books"        },
-                      { feature: "Return Period",      normal: "45 days",    vip: "60 days"        },
-                      { feature: "Renewals per Book", normal: "1",          vip: "2"              },
-                      { feature: "Priority Support",  normal: "✗",          vip: "✓"              },
-                      { feature: "Early Access",       normal: "✗",          vip: "✓"              },
+                      { feature: "Book Collection",   normal: "General",  vip: "General + Rare" },
+                      { feature: "Borrow Limit",       normal: `${normalPromo?.maxBorrowedBooksOverride  ?? 5} books`, vip: `${vipPromo?.maxBorrowedBooksOverride  ?? 8} books` },
+                      { feature: "Return Period",       normal: `${normalPromo?.maxBorrowDurationOverride ?? 45} days`, vip: `${vipPromo?.maxBorrowDurationOverride  ?? 60} days` },
+                      { feature: "Renewals per Book",  normal: "1",        vip: "2"              },
+                      { feature: "Priority Support",   normal: "✗",        vip: "✓"              },
+                      { feature: "Early Access",        normal: "✗",        vip: "✓"              },
                     ].map((row, i) => (
                       <tr key={row.feature} style={{ background: i % 2 === 0 ? "#fafafa" : "#fff", borderBottom: "1px solid #f0e8e4" }}>
                         <td style={{ padding: "13px 20px", color: PALETTE.darkNavy, fontWeight: 500 }}>{row.feature}</td>
@@ -735,7 +737,6 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
                 </table>
               </div>
 
-              {/* Error banner */}
               {error && (
                 <div style={{ background: "#fff5f5", border: "1.5px solid #fca5a5",
                   borderRadius: 8, padding: "10px 14px", fontSize: 13.5,
@@ -744,7 +745,6 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
                 </div>
               )}
 
-              {/* Subscribe CTA */}
               <div style={{ textAlign: "center" }}>
                 {successMsg ? (
                   <div style={{ display: "inline-flex", alignItems: "center", gap: 10,
@@ -759,7 +759,7 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
                   </div>
                 ) : (
                   <>
-                   <button onClick={handleSubscribeClick} style={{
+                    <button onClick={handleSubscribeClick} style={{
                       padding: "14px 48px", border: "none", borderRadius: 10,
                       background: selectedPlan === "vip" ? "#d4a017" : PALETTE.burntOrange,
                       color: "#fff", fontFamily: "'DM Sans', sans-serif",
@@ -770,7 +770,7 @@ export default function ReadingCardPage({ onLogout, onNavigate, activePage = "re
                       onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
                     >
                       Subscribe to {PLANS[selectedPlan].label} — ${selectedFinalPrice} / {DURATION_LABELS[duration].toLowerCase()}
-                  </button>
+                    </button>
                     <p style={{ margin: "10px 0 0", fontSize: 12, color: PALETTE.slateGrey }}>
                       Cancel anytime. No hidden fees.
                     </p>
